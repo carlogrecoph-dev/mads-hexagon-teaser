@@ -1,0 +1,38 @@
+{
+  "url": "http://127.0.0.1:8081/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "M.A.D.S. Hexagon Teaser Engine",
+      "hasCanvas": true,
+      "bodyTextLen": 902,
+      "bodyTextHash": "7ff64a31f1aef0c2d901e0dc26b9e5922f174233ad8188ae7c79ca274509fda5",
+      "bodyTextPrefix": "M.A.D.S. ART GALLERY Hexagon Teaser IN PLAY Caricamento… — Gener",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "M.A.D.S. Hexagon Teaser Engine",
+      "hasCanvas": true,
+      "bodyTextLen": 111,
+      "bodyTextHash": "a09639c445041dab5d2c4c2a899030f1ecb0e9294cf6531951cb69a3a33a64d0",
+      "bodyTextPrefix": "M.A.D.S. ART GALLERY Hexagon Teaser Auto Alto Destra Sinistra 0.",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-built.json",
+  "divergesFromBaseline": false,
+  "baselineReasons": []
+}

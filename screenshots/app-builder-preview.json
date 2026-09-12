@@ -1,0 +1,36 @@
+{
+  "url": "http://127.0.0.1:8080/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "M.A.D.S. Hexagon Teaser Engine",
+      "hasCanvas": true,
+      "bodyTextLen": 999,
+      "bodyTextHash": "c12ca598964095c8d87ffb66c4035c64ce37230b45c14dbef1029c248639a375",
+      "bodyTextPrefix": "M.A.D.S. ART GALLERY Hexagon Teaser IN PLAY Caricamento… — Gener",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "M.A.D.S. Hexagon Teaser Engine",
+      "hasCanvas": true,
+      "bodyTextLen": 208,
+      "bodyTextHash": "3dc1b59b06f02f1634f7cd05c0305b4c53753da20771e2d00b75e311831ea193",
+      "bodyTextPrefix": "M.A.D.S. ART GALLERY Hexagon Teaser HEXAGON AR Nessuna opera M.A",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-preview.json"
+}

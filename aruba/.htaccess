@@ -1,0 +1,15 @@
+DirectoryIndex index.html
+Options -Indexes
+
+# Funziona sia in public_html che in una sottocartella (es. /hexagon/)
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . index.html [L]
+</IfModule>
+
+AddType model/gltf-binary .glb
+AddType application/octet-stream .vrm
+AddType application/manifest+json .webmanifest
+AddType application/wasm .wasm

@@ -1,0 +1,16 @@
+node_modules/
+dist/
+dist-aruba/
+.vercel/
+artifacts/
+attachments/
+.env
+.env.*
+.project_id
+.github_repo
+.DS_Store
+*.mp4
+*.zip
+public/teasers/
+public/hexagon-aruba.zip
+public/MADS-Hexagon-desktop.zip
