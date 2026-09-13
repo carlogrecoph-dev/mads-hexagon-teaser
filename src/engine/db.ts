@@ -79,22 +79,22 @@ export async function putJob(job: RenderJob) {
 
 export const SAMPLE_MANIFEST = [
   {
-    file: "/samples/portrait-gaze.jpg",
+    file: "samples/portrait-gaze.jpg",
     name: "Portrait Gaze",
     id: "sample-portrait-gaze",
   },
   {
-    file: "/samples/color-field.jpg",
+    file: "samples/color-field.jpg",
     name: "Color Field",
     id: "sample-color-field",
   },
   {
-    file: "/samples/night-harbor.jpg",
+    file: "samples/night-harbor.jpg",
     name: "Night Harbor",
     id: "sample-night-harbor",
   },
   {
-    file: "/samples/still-life.jpg",
+    file: "samples/still-life.jpg",
     name: "Still Life",
     id: "sample-still-life",
   },

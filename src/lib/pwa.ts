@@ -51,6 +51,11 @@ export function registerPwa() {
     notify();
   });
   if ("serviceWorker" in navigator) {
+    const host = location.hostname;
+    if (host.endsWith("github.io")) {
+      void navigator.serviceWorker.getRegistrations().then((rs) => rs.forEach((r) => void r.unregister()));
+      return;
+    }
     const sw = publicUrl("sw.js");
     const scope = new URL("./", sw).pathname;
     void navigator.serviceWorker.register(sw, { scope });
