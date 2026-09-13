@@ -1,5 +1,5 @@
 /* M.A.D.S. Hexagon — offline shell */
-const CACHE = "mads-hexagon-v1";
+const CACHE = "mads-hexagon-v2";
 const PRECACHE = [
   "/",
   "/manifest.webmanifest",
