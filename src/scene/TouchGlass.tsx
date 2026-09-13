@@ -66,7 +66,7 @@ export function TouchGlass({ width, height }: { width: number; height: number })
       return;
     }
     const glance = s.interaction.glance ?? 0;
-    const press = clamp(1 - glance * 1.15, 0, 1) * 0.55;
+    const press = clamp(1 - glance * 1.15, 0, 1) * 0.42;
     if (press < 0.04) {
       texture.needsUpdate = true;
       return;

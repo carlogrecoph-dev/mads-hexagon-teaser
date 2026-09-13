@@ -264,7 +264,7 @@ export function createVrmRig(humanoid: Humanoid) {
     const inward = _sh.x >= 0 ? -1 : 1;
     _dir.copy(_goal).sub(_sh);
     let d = _dir.length();
-    const maxR = (u + l) * 0.985;
+    const maxR = (u + l) * 0.97;
     if (d < 1e-5) return;
     if (d > maxR) {
       _dir.multiplyScalar(maxR / d);
@@ -276,19 +276,21 @@ export function createVrmRig(humanoid: Humanoid) {
     if (d < 1e-5) return;
     _dir.multiplyScalar(1 / d);
     _pole.set(
-      _hip.x + inward * 0.02,
-      Math.min(_hip.y + 0.14, _sh.y - 0.18),
-      _hip.z + towardTable * 0.04,
+      _hip.x + inward * 0.04,
+      Math.min(_hip.y + 0.08, _sh.y - 0.22),
+      _hip.z + towardTable * 0.03,
     );
     _elbow.copy(_pole).sub(_sh);
     _elbow.addScaledVector(_dir, -_elbow.dot(_dir));
-    if (_elbow.lengthSq() < 1e-8) _elbow.set(inward, -1, towardTable * 0.15);
+    if (_elbow.lengthSq() < 1e-8) _elbow.set(inward, -1.2, towardTable * 0.12);
     _elbow.normalize();
-    if (_elbow.y > 0) _elbow.y = -Math.abs(_elbow.y);
-    const cosA = THREE.MathUtils.clamp((u * u + d * d - l * l) / (2 * u * d), -1, 1);
-    const sinA = Math.sqrt(Math.max(0, 1 - cosA * cosA));
+    if (_elbow.y > -0.15) _elbow.y = -0.35;
+    const cosA0 = THREE.MathUtils.clamp((u * u + d * d - l * l) / (2 * u * d), -1, 1);
+    const sinA0 = Math.sqrt(Math.max(0, 1 - cosA0 * cosA0));
+    const sinA = Math.max(sinA0, 0.28);
+    const cosA = Math.sqrt(Math.max(0, 1 - sinA * sinA));
     _elbow.multiplyScalar(u * sinA).addScaledVector(_dir, u * cosA).add(_sh);
-    _elbow.y = THREE.MathUtils.clamp(_elbow.y, _hip.y - 0.04, Math.min(_sh.y, _goal.y) - 0.1);
+    _elbow.y = THREE.MathUtils.clamp(_elbow.y, _hip.y - 0.04, Math.min(_sh.y - 0.16, _hip.y + 0.22));
     const upperAim = aim.get(upper);
     const lowerAim = aim.get(lower);
     if (upperAim) aimBone(upper, upperAim, _elbow);
@@ -335,7 +337,7 @@ export function createVrmRig(humanoid: Humanoid) {
         _lastT = t;
       } else {
         _lastT = t;
-        const aHand = 1 - Math.exp(-5.2 * dt);
+        const aHand = 1 - Math.exp(-4.4 * dt);
         _smoothL.lerp(_wantL, aHand);
         _smoothR.lerp(_wantR, aHand);
         snapPalm(_smoothL, lift);

@@ -28,7 +28,7 @@ const Z_MAX = HEX.tableZ + HALF_D - 0.05;
 /** Ergonomics of a hand on a big glass table, metres. */
 export const TOUCH = {
   /** fingertip skin offset while pressed — contact, never intersection */
-  contactClear: 0.009,
+  contactClear: 0.012,
   /** clearance the knuckles and folded joints must keep from the glass */
   boneClear: 0.012,
   /** a finger that is not touching may come close, but never through */
@@ -167,12 +167,11 @@ export function glassForArtPoint(
  */
 export function contactEnvelope(local: number, dur: number) {
   const t = clamp(local, 0, 1);
-  // a short beat still needs a readable land/lift; a long one keeps them snappy
-  const land = clamp(0.5 / Math.max(0.8, dur), 0.06, 0.26);
-  const leave = 1 - clamp(0.42 / Math.max(0.8, dur), 0.05, 0.22);
+  const land = clamp(0.55 / Math.max(0.8, dur), 0.07, 0.28);
+  const leave = 1 - clamp(0.45 / Math.max(0.8, dur), 0.06, 0.24);
   const down = smootherstep(t / land);
   const up = 1 - smootherstep((t - leave) / Math.max(1e-4, 1 - leave));
-  const press = clamp(Math.min(down, up), 0, 1);
+  const press = clamp(Math.min(down, up) * 0.82, 0, 0.82);
   return { press, landing: t < land, leaving: t > leave };
 }
 
@@ -180,7 +179,6 @@ export function contactEnvelope(local: number, dur: number) {
 export function tipClear(press: number, travelling = false) {
   if (travelling) return TOUCH.travelClear;
   const p = clamp(press, 0, 1);
-  // an approach arcs in: high, then down onto the point
   const arc = Math.sin((1 - p) * Math.PI) * 0.75;
   return lerp(TOUCH.hoverClear + TOUCH.travelClear * arc, TOUCH.contactClear, smootherstep(p));
 }

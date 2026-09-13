@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>M.A.D.S. Hexagon Teaser</title>
+    <meta name="theme-color" content="#070708" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <base href="./" />
+    <script>
+      (function () {
+        var p = location.pathname;
+        if (/\.[a-z0-9]+$/i.test(p)) p = p.replace(/\/[^/]+$/, "/");
+        else if (p.slice(-1) !== "/") p += "/";
+        window.__HEX_BASE__ =
+          location.origin +
+          p
+            .split("/")
+            .map(function (s) {
+              return encodeURIComponent(s);
+            })
+            .join("/");
+      })();
+    </script>
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Outfit:wght@200;300;400;500;600;700&display=swap"
+    />
+    <script type="module" crossorigin src="./assets/index-CLrP8Kpm.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/rolldown-runtime-hePW80VL.js">
+    <link rel="stylesheet" crossorigin href="./assets/index-B_gv3PuR.css">
+  </head>
+  <body class="bg-background text-foreground">
+    <div id="root"></div>
+  </body>
+</html>

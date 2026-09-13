@@ -105,8 +105,8 @@ export function handsFromInteraction(
   }
 
   return {
-    left: { ...wristOnUv(uL, vL, lift), pose, lift, press: 1 - lift, role: "pinch" },
-    right: { ...wristOnUv(uR, vR, lift), pose, lift, press: 1 - lift, role: "pinch" },
+    left: { ...wristOnUv(uL, vL, lift), pose, lift, press: 0.78 * (1 - lift), role: "pinch" },
+    right: { ...wristOnUv(uR, vR, lift), pose, lift, press: 0.78 * (1 - lift), role: "pinch" },
   };
 }
 

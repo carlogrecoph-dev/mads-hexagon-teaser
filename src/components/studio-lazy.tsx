@@ -1,20 +1,28 @@
 import { HexMark } from "@/components/hex-mark";
 import { useEffect, useState, type ComponentType } from "react";
 
-const studioPromise =
-  typeof window !== "undefined" ? import("@/scene/StudioCanvas") : null;
+async function loadStudio(attempt = 0): Promise<ComponentType> {
+  try {
+    const m = await import("@/scene/StudioCanvas");
+    return m.StudioCanvas;
+  } catch (err) {
+    if (attempt >= 4) throw err;
+    await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+    return loadStudio(attempt + 1);
+  }
+}
 
 export function StudioLazy() {
   const [Canvas, setCanvas] = useState<ComponentType | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     let on = true;
-    void (studioPromise ?? import("@/scene/StudioCanvas"))
-      .then((m) => {
-        if (on) setCanvas(() => m.StudioCanvas);
+    void loadStudio()
+      .then((C) => {
+        if (on) setCanvas(() => C);
       })
       .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : "Failed to load studio");
+        if (on) setError(err instanceof Error ? err.message : "Failed to load studio");
       });
     return () => {
       on = false;

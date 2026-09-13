@@ -168,35 +168,40 @@ export const useStudio = create<StudioStore>((set, get) => ({
   exportFrame: "",
 
   hydrate: async () => {
-    const settings = await loadSettings();
-    const jobs = await listJobs();
-    set({ settings, jobs, ready: true });
-    let artworks = await listArtworks();
-    if (artworks.length === 0) {
-      for (const sample of SAMPLE_MANIFEST) {
-        try {
-          const res = await fetch(publicUrl(sample.file));
-          const blob = await res.blob();
-          const file = new File([blob], `${sample.name}.jpg`, { type: blob.type || "image/jpeg" });
-          const rec = await fileToRecord(file, sample.id, seedFromName(sample.name, 1));
-          rec.createdAt = Date.now() - 1000;
-          await putArtwork(rec);
-          artworks.push(rec);
-          if (!get().activeId) {
-            set({ artworks: [...artworks], activeId: rec.id });
-            get().rebuildPlan();
-          } else {
-            set({ artworks: [...artworks] });
+    try {
+      const settings = { ...(await loadSettings()), includeCharacter: true };
+      const jobs = await listJobs();
+      set({ settings, jobs, ready: true });
+      let artworks = await listArtworks();
+      if (artworks.length === 0) {
+        for (const sample of SAMPLE_MANIFEST) {
+          try {
+            const res = await fetch(publicUrl(sample.file));
+            const blob = await res.blob();
+            const file = new File([blob], `${sample.name}.jpg`, { type: blob.type || "image/jpeg" });
+            const rec = await fileToRecord(file, sample.id, seedFromName(sample.name, 1));
+            rec.createdAt = Date.now() - 1000;
+            await putArtwork(rec);
+            artworks.push(rec);
+            if (!get().activeId) {
+              set({ artworks: [...artworks], activeId: rec.id });
+              get().rebuildPlan();
+            } else {
+              set({ artworks: [...artworks] });
+            }
+          } catch (err) {
+            console.warn("Sample load failed", sample.file, err);
           }
-        } catch (err) {
-          console.warn("Sample load failed", sample.file, err);
         }
       }
+      artworks = artworks.sort((a, b) => b.createdAt - a.createdAt);
+      const activeId = get().activeId ?? artworks[0]?.id ?? null;
+      set({ artworks, activeId, ready: true });
+      if (activeId && !get().plan) get().rebuildPlan();
+    } catch (err) {
+      console.warn("[hexagon] hydrate failed", err);
+      set({ ready: true, settings: { ...DEFAULT_SETTINGS, includeCharacter: true } });
     }
-    artworks = artworks.sort((a, b) => b.createdAt - a.createdAt);
-    const activeId = get().activeId ?? artworks[0]?.id ?? null;
-    set({ artworks, activeId, ready: true });
-    if (activeId && !get().plan) get().rebuildPlan();
   },
 
   addFiles: async (files) => {

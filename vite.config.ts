@@ -153,7 +153,7 @@ function arubaPackPlugin(): Plugin {
     name: "mads-aruba-pack",
     apply: "serve",
     configureServer(server) {
-      server.middlewares.use((req, _res, next) => {
+      server.middlewares.use((req, res, next) => {
         const pathOnly = (req.url ?? "").split("?", 1)[0] ?? "";
         if (pathOnly === "/mads-hexagon" || pathOnly === "/mads-hexagon/") {
           req.url = "/mads-hexagon/index.html";
