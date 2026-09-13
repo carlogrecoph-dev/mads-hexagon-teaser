@@ -1,3 +1,4 @@
+import { zoomToFitRegion } from "./math.ts";
 import type { FocusPoint, FocusSemantic } from "./types.ts";
 
 function idx(x: number, y: number, w: number) {
@@ -278,6 +279,89 @@ export function analyzeImageData(imageData: ImageData): FocusPoint[] {
   for (const p of peaks) pushPeak(p);
 
   return points.slice(0, 14);
+}
+
+/**
+ * Snap a hand-placed point onto the detail that is actually under it.
+ *
+ * A click lands where the eye aimed, give or take a few pixels; the teaser
+ * then zooms to ×3 or ×4, where those few pixels are half a face. So take a
+ * small window around the click, find the strongest feature inside it, and
+ * measure how big that feature is — the point comes back centred on real
+ * paint, with the zoom that frames it exactly.
+ */
+export function refineFocusPoint(
+  imageData: ImageData,
+  cx: number,
+  cy: number,
+  windowFrac = 0.09,
+): { cx: number; cy: number; width: number; height: number; semantic: FocusSemantic; zoom: number } | null {
+  const { width: w, height: h, data } = imageData;
+  const rx = Math.max(4, Math.round(w * windowFrac));
+  const ry = Math.max(4, Math.round(h * windowFrac));
+  const px = Math.round(clamp01(cx) * (w - 1));
+  const py = Math.round(clamp01(cy) * (h - 1));
+  const x0 = Math.max(1, px - rx);
+  const x1 = Math.min(w - 2, px + rx);
+  const y0 = Math.max(1, py - ry);
+  const y1 = Math.min(h - 2, py + ry);
+  if (x1 - x0 < 3 || y1 - y0 < 3) return null;
+
+  const ww = x1 - x0 + 1;
+  const hh = y1 - y0 + 1;
+  const local = new Float32Array(ww * hh);
+  let peak = 0;
+  let bx = px;
+  let by = py;
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      const i = idx(x, y, w);
+      const r = (data[i] ?? 0) / 255;
+      const g = (data[i + 1] ?? 0) / 255;
+      const b = (data[i + 2] ?? 0) / 255;
+      const l = 0.3 * r + 0.59 * g + 0.11 * b;
+      const ir = idx(x + 1, y, w);
+      const ib = idx(x, y + 1, w);
+      const lr =
+        0.3 * ((data[ir] ?? 0) / 255) + 0.59 * ((data[ir + 1] ?? 0) / 255) + 0.11 * ((data[ir + 2] ?? 0) / 255);
+      const lb =
+        0.3 * ((data[ib] ?? 0) / 255) + 0.59 * ((data[ib + 1] ?? 0) / 255) + 0.11 * ((data[ib + 2] ?? 0) / 255);
+      const edge = Math.abs(l - lr) + Math.abs(l - lb);
+      const sat = Math.max(r, g, b) - Math.min(r, g, b);
+      // stay near where the finger actually landed: the further out, the less it counts
+      const dx = (x - px) / rx;
+      const dy = (y - py) / ry;
+      const near = Math.exp(-(dx * dx + dy * dy) * 1.6);
+      const v = (edge * 1.5 + sat * 0.5) * near;
+      local[(y - y0) * ww + (x - x0)] = v;
+      if (v > peak) {
+        peak = v;
+        bx = x;
+        by = y;
+      }
+    }
+  }
+  if (peak < 1e-4) return null;
+
+  const refined = refinePeak(local, ww, hh, bx - x0, by - y0);
+  const fx = (x0 + refined.x + 0.5) / w;
+  const fy = (y0 + refined.y + 0.5) / h;
+  const ext = blobExtent(local, ww, hh, Math.round(refined.x), Math.round(refined.y), peak * 0.18);
+  const width = clamp01(ext.rw * 2 * (ww / w));
+  const height = clamp01(ext.rh * 2 * (hh / h));
+  const semantic = classify(data, w, h, fx, fy, Math.max(0.02, width / 2), Math.max(0.02, height / 2));
+  return {
+    cx: clamp01(fx),
+    cy: clamp01(fy),
+    width: Math.max(0.04, width),
+    height: Math.max(0.04, height),
+    semantic,
+    zoom: zoomToFitRegion(w, h, Math.max(0.04, width), Math.max(0.04, height)),
+  };
+}
+
+function clamp01(v: number) {
+  return Math.min(1, Math.max(0, v));
 }
 
 export async function analyzeArtwork(

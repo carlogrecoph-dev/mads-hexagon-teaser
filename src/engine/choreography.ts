@@ -49,6 +49,11 @@ const PRIMITIVES: TransitionPrimitive[] = [
   "TOP_REVEAL",
 ];
 
+const MAX_VISITS = 10;
+const SECONDS_PER_VISIT = 7.5;
+const VISIT_TAIL = 6;
+const MAX_DURATION = 72;
+
 const REST: InteractionState = {
   spread: 0.08,
   panX: 0,
@@ -449,14 +454,17 @@ export function generatePlan(input: PlanInput): TeaserPlan {
   const settings = input.settings;
   const artW = Math.max(1, input.artWidth ?? 1);
   const artH = Math.max(1, input.artHeight ?? 1);
-  const duration = input.duration ?? rngRange(rng, LIMITS.duration[0], LIMITS.duration[1]);
   const rawOrder = CAMERA_SEQUENCES[Math.floor(rng() * CAMERA_SEQUENCES.length)] ?? CAMERA_SEQUENCES[0]!;
   const order: CameraId[] = [];
   for (const c of rawOrder) if (!order.includes(c)) order.push(c);
-  const guided = input.focusPoints.some((p) => p.source === "manual" || p.locked);
-  const picked = pickFoci(input.focusPoints, rng, guided ? 16 : 7);
-  let foci = expandPortraitPath(picked, artW, artH);
-  if (foci.length > 3) foci = foci.slice(0, 3);
+  const manual = input.focusPoints.filter((p) => p.source === "manual" || p.locked);
+  const guided = manual.length > 0;
+  const foci = guided
+    ? manual.slice(0, MAX_VISITS)
+    : expandPortraitPath(pickFoci(input.focusPoints, rng, 7), artW, artH).slice(0, 3);
+  const baseDuration = input.duration ?? rngRange(rng, LIMITS.duration[0], LIMITS.duration[1]);
+  const needed = guided ? SECONDS_PER_VISIT * foci.length + VISIT_TAIL : 0;
+  const duration = clamp(Math.max(baseDuration, needed), LIMITS.duration[0], MAX_DURATION);
 
   const transScale = lerp(1.15, 0.72, settings.transitionDuration);
   const t1 = clamp(rngRange(rng, 1.35, 1.85) * transScale, 1.2, 2.1);
@@ -507,7 +515,10 @@ export function generatePlan(input: PlanInput): TeaserPlan {
   visits.forEach((f, i) => {
     const nextCam = camAt(i);
     const zMax = lerp(2.35, MOVEMENT_PRESETS[settings.preset].zoomMax, settings.zoomIntensity);
-    const rec = clamp(f.recommendedZoom, 1.45, zMax - 0.05);
+    const rec =
+      f.locked || f.source === "manual"
+        ? clamp(f.recommendedZoom, 1.3, 4.4)
+        : clamp(f.recommendedZoom, 1.45, zMax - 0.05);
     const heat = f.locked || f.source === "manual" || f.score > 0.62 ? 1.12 : 1;
 
     if (nextCam !== cam) {
@@ -532,7 +543,7 @@ export function generatePlan(input: PlanInput): TeaserPlan {
     };
     const pinchOpen: InteractionState = {
       ...pinchClosed,
-      spread: rngRange(rng, 0.86, 0.96),
+      spread: rngRange(rng, 0.94, 1),
       point: 0.28,
       gesture: "SPREAD",
     };

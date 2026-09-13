@@ -140,11 +140,32 @@ describe("choreography determinism", () => {
       { id: "m6", cx: 0.15, cy: 0.5, width: 0.1, height: 0.1, score: 1, semantic: "manual", recommendedZoom: 2.2, locked: true, source: "manual" },
     ];
     const plan = generatePlan({ seed: 42, focusPoints: [...foci, ...manual], settings: DEFAULT_SETTINGS });
-    assert.deepEqual(plan.focusIds, ["m1", "m2", "m3"]);
+    assert.deepEqual(plan.focusIds, ["m1", "m2", "m3", "m4", "m5", "m6"]);
     for (const id of plan.focusIds) {
       const hit = plan.segments.some((s) => s.kind === "hold" && s.focusId === id);
       assert.ok(hit, `missing visit to ${id}`);
     }
+    // the order on the map is the order on screen
+    const visited = plan.segments
+      .filter((s): s is Extract<typeof s, { kind: "hold" }> => s.kind === "hold" && !!s.focusId)
+      .map((s) => s.focusId!);
+    const firstSeen: string[] = [];
+    for (const id of visited) if (!firstSeen.includes(id)) firstSeen.push(id);
+    assert.deepEqual(firstSeen, ["m1", "m2", "m3", "m4", "m5", "m6"]);
+    // the clip grows so six details still have room to be read
+    assert.ok(plan.duration > 45, `six points need a longer clip, got ${plan.duration}`);
+  });
+
+  it("honours the zoom set by hand on the slider", () => {
+    const deep: FocusPoint[] = [
+      { id: "d1", cx: 0.4, cy: 0.35, width: 0.08, height: 0.08, score: 1, semantic: "manual", recommendedZoom: 4.3, locked: true, source: "manual" },
+    ];
+    const plan = generatePlan({ seed: 3, focusPoints: deep, settings: DEFAULT_SETTINGS });
+    let peak = 0;
+    for (let t = 0; t < plan.duration; t += 0.1) {
+      peak = Math.max(peak, evaluateTeaser(plan, t, DEFAULT_SETTINGS).viewport.zoom);
+    }
+    assert.ok(peak > 4, `slider said 4.3, teaser reached ${peak}`);
   });
 
   it("on a vertical portrait, frames the eyes instead of clamping to the nose", () => {

@@ -6,7 +6,7 @@ import { useStudio } from "@/store/studio";
 export function Character() {
   const include = useStudio((s) => s.settings.includeCharacter);
   const vrmUrl = useStudio((s) => s.identity.vrmUrl);
-  const bundled = publicUrl("models/female.vrm?v=op");
+  const bundled = publicUrl("models/female.vrm?v=nape2");
   const url = !vrmUrl || /female\.vrm/.test(vrmUrl) ? bundled : vrmUrl;
   if (!include) return null;
   return (

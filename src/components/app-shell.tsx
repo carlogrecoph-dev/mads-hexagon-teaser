@@ -51,6 +51,12 @@ function Header({ onHelp }: { onHelp: () => void }) {
       <Button size="icon-sm" variant="ghost" onClick={onHelp} aria-label="Apri guida" className="hidden sm:inline-flex">
         <CircleHelp className="size-4" />
       </Button>
+      <a
+        href="/mads-hexagon/index.html"
+        className="hidden rounded-md border border-border px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground md:inline-flex"
+      >
+        Pacchetto Aruba
+      </a>
       <InstallAppButton />
       <Button size="sm" onClick={enqueueActive} disabled={!art} className="hidden lg:inline-flex">
         <WandSparkles className="size-3.5" />

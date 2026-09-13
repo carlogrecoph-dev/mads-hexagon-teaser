@@ -13,6 +13,9 @@ import {
 } from "./glass.ts";
 import { clamp, lerp, zoomFromSpread } from "./math.ts";
 import type { EngineSettings, GestureId, InteractionState, TeaserState } from "./types.ts";
+import type { TouchBeat } from "./touch.ts";
+
+export type { TouchBeat };
 
 const HALF_W = HEX.screen55.width * 0.47;
 const HALF_D = (HEX.screen55.height / 2) * Math.cos(HEX.tableTilt);
@@ -59,6 +62,7 @@ export function handsFromInteraction(
   settings: EngineSettings,
   artW = 1,
   artH = 1,
+  _beat?: TouchBeat,
 ): TeaserState["hands"] {
   const pose = interaction.gesture;
   const spread = clamp(interaction.spread, 0, 1);
@@ -101,8 +105,8 @@ export function handsFromInteraction(
   }
 
   return {
-    left: { ...wristOnUv(uL, vL, lift), pose },
-    right: { ...wristOnUv(uR, vR, lift), pose },
+    left: { ...wristOnUv(uL, vL, lift), pose, lift, press: 1 - lift, role: "pinch" },
+    right: { ...wristOnUv(uR, vR, lift), pose, lift, press: 1 - lift, role: "pinch" },
   };
 }
 

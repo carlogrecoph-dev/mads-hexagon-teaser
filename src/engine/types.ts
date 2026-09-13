@@ -106,9 +106,27 @@ export interface TouchMotor {
   speed: number;
 }
 
+/** What this hand is doing on the glass right now. */
+export type ContactRole = "point" | "pinch" | "drag" | "park";
+
+export interface HandTarget {
+  /** index fingertip goal, world metres */
+  x: number;
+  y: number;
+  z: number;
+  /** thumb tip goal — set only for a one-hand pinch */
+  thumb?: Vec3;
+  /** 0 pressed on the glass → 1 lifted clear of it */
+  lift: number;
+  /** 0 no contact → 1 full skin contact */
+  press: number;
+  role: ContactRole;
+  pose: GestureId;
+}
+
 export interface HandState {
-  left: { x: number; y: number; z: number; pose: GestureId };
-  right: { x: number; y: number; z: number; pose: GestureId };
+  left: HandTarget;
+  right: HandTarget;
 }
 
 export interface CameraPose {
