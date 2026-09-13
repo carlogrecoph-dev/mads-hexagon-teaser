@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <rect width="1024" height="1024" fill="#050506"/>
+  <text x="512" y="184" text-anchor="middle" fill="#E63B8A" font-family="Arial Black, Helvetica, sans-serif" font-size="47" letter-spacing="18" font-weight="700">ART GALLERY</text>
+  <g fill="none" stroke-linecap="butt" stroke-linejoin="miter" stroke-width="56">
+    <path d="M 102 676 L 230 287 L 359 496 L 487 287 L 615 676" stroke="#F5D445"/>
+    <path d="M 389 676 L 517 287 L 646 496 L 774 287 L 902 676" stroke="#E63B8A"/>
+  </g>
+  <text x="338" y="798" text-anchor="middle" fill="#F5D445" font-family="Arial Black, Helvetica, sans-serif" font-size="72" font-weight="700">A</text>
+  <text x="512" y="798" text-anchor="middle" fill="#E63B8A" font-family="Arial Black, Helvetica, sans-serif" font-size="72" font-weight="700">D</text>
+  <text x="676" y="798" text-anchor="middle" fill="#F5D445" font-family="Arial Black, Helvetica, sans-serif" font-size="72" font-weight="700">S</text>
+  <text x="512" y="922" text-anchor="middle" fill="#E63B8A" font-family="Helvetica, Arial, sans-serif" font-size="27" letter-spacing="6">MEDIATOR ADVISOR DEALER SEEKER</text>
+</svg>

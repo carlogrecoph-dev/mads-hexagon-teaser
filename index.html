@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>M.A.D.S. Hexagon Teaser</title>
+    <meta name="theme-color" content="#070708" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <script>
+      (function () {
+        if (navigator.serviceWorker) {
+          navigator.serviceWorker.getRegistrations().then(function (rs) {
+            rs.forEach(function (r) {
+              r.unregister();
+            });
+          });
+        }
+        if (window.caches) {
+          caches.keys().then(function (keys) {
+            keys.forEach(function (k) {
+              caches.delete(k);
+            });
+          });
+        }
+        var p = location.pathname;
+        if (/\.[a-z0-9]+$/i.test(p)) p = p.replace(/\/[^/]+$/, "/");
+        else if (p.slice(-1) !== "/") p += "/";
+        window.__HEX_BASE__ = location.origin + p;
+      })();
+    </script>
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Outfit:wght@200;300;400;500;600;700&display=swap"
+    />
+    <style>
+      html,
+      body {
+        margin: 0;
+        min-height: 100dvh;
+        background: #111114;
+        color: #f3f1ec;
+        font-family: Outfit, system-ui, sans-serif;
+      }
+      #boot {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        font-size: 12px;
+        color: #c8f542;
+      }
+    </style>
+    <script type="module" crossorigin src="/mads-hexagon-teaser/assets/index-C9kpTLHF.js"></script>
+    <link rel="modulepreload" crossorigin href="/mads-hexagon-teaser/assets/rolldown-runtime-hePW80VL.js">
+    <link rel="stylesheet" crossorigin href="/mads-hexagon-teaser/assets/index-BuaMzJsD.css">
+  </head>
+  <body>
+    <div id="root">
+      <div id="boot">M.A.D.S. · carico lo studio</div>
+    </div>
+  </body>
+</html>
