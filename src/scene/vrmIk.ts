@@ -1,5 +1,5 @@
 import { HEX } from "@/engine/config";
-import { isOnMonitor, onGlass, Z_MIN } from "@/engine/hands";
+import { glassFingerDir, PALM_CLEAR, projectToGlass } from "@/engine/hands";
 import { clamp, damp, lerp, wander } from "@/engine/math";
 import type { GestureId, TeaserState } from "@/engine/types";
 import { runtime } from "./runtime";
@@ -7,6 +7,7 @@ import * as THREE from "three";
 
 type Humanoid = {
   getNormalizedBoneNode: (name: string) => THREE.Object3D | null;
+  getRawBoneNode?: (name: string) => THREE.Object3D | null;
 };
 
 const _sh = new THREE.Vector3();
@@ -26,13 +27,14 @@ const _wantL = new THREE.Vector3();
 const _wantR = new THREE.Vector3();
 
 function snapPalm(v: THREE.Vector3, extra = 0) {
-  if (!isOnMonitor(v.z)) return;
-  const s = onGlass(v.x, v.z, extra);
+  const s = projectToGlass(v.x, v.y, v.z, PALM_CLEAR + extra);
   v.set(s.x, s.y, s.z);
 }
 const _from = new THREE.Vector3();
 const _hip = new THREE.Vector3();
 const _pole = new THREE.Vector3();
+const _tip = new THREE.Vector3();
+const _fingerDir = new THREE.Vector3();
 const _scl = new THREE.Vector3();
 const _headW = new THREE.Vector3();
 let _armed = false;
@@ -69,15 +71,15 @@ const FINGERS = ["Index", "Middle", "Ring", "Little"] as const;
 const PARTS = ["Proximal", "Intermediate", "Distal"] as const;
 
 const FINGER_CURL: Record<string, number[]> = {
-  SPREAD: [0.0, 0.06, 0.18, 0.28],
-  PINCH: [0.0, 0.08, 0.2, 0.3],
-  RETURN: [0.0, 0.1, 0.22, 0.32],
-  DETAIL_POINT: [0.0, 0.55, 0.7, 0.8],
-  PAN_LEFT: [0.02, 0.2, 0.48, 0.62],
-  PAN_RIGHT: [0.02, 0.2, 0.48, 0.62],
-  PAN_UP: [0.02, 0.2, 0.48, 0.62],
-  PAN_DOWN: [0.02, 0.2, 0.48, 0.62],
-  HOLD: [0.04, 0.14, 0.28, 0.4],
+  SPREAD: [0.0, 0.04, 0.1, 0.16],
+  PINCH: [0.0, 0.04, 0.1, 0.16],
+  RETURN: [0.0, 0.05, 0.12, 0.18],
+  DETAIL_POINT: [0.0, 0.06, 0.14, 0.2],
+  PAN_LEFT: [0.0, 0.05, 0.12, 0.18],
+  PAN_RIGHT: [0.0, 0.05, 0.12, 0.18],
+  PAN_UP: [0.0, 0.05, 0.12, 0.18],
+  PAN_DOWN: [0.0, 0.05, 0.12, 0.18],
+  HOLD: [0.0, 0.05, 0.12, 0.18],
 };
 
 function curlAmount(pose: GestureId, finger: string) {
@@ -97,7 +99,8 @@ function lungFill(t: number) {
 }
 
 export function createVrmRig(humanoid: Humanoid) {
-  const node = (name: string) => humanoid.getNormalizedBoneNode(name);
+  const node = (name: string) =>
+    humanoid.getRawBoneNode?.(name) ?? humanoid.getNormalizedBoneNode(name);
 
   const L = {
     upper: node("leftUpperArm"),
@@ -141,6 +144,20 @@ export function createVrmRig(humanoid: Humanoid) {
   captureAim(L.lower, L.hand);
   captureAim(R.upper, R.lower);
   captureAim(R.lower, R.hand);
+  L.hand?.traverse((o) => {
+    if ((o as THREE.Bone).isBone) capture(o);
+  });
+  R.hand?.traverse((o) => {
+    if ((o as THREE.Bone).isBone) capture(o);
+  });
+  captureAim(L.hand, node("leftIndexProximal"));
+  captureAim(R.hand, node("rightIndexProximal"));
+  if (L.hand && !aim.get(L.hand)) aim.set(L.hand, new THREE.Vector3(0, 0.08, 0));
+  if (R.hand && !aim.get(R.hand)) aim.set(R.hand, new THREE.Vector3(0, 0.08, 0));
+  if (L.upper && !aim.get(L.upper)) aim.set(L.upper, new THREE.Vector3(0, 1, 0));
+  if (R.upper && !aim.get(R.upper)) aim.set(R.upper, new THREE.Vector3(0, 1, 0));
+  if (L.lower && !aim.get(L.lower)) aim.set(L.lower, new THREE.Vector3(0, 1, 0));
+  if (R.lower && !aim.get(R.lower)) aim.set(R.lower, new THREE.Vector3(0, 1, 0));
 
   const hipRest = node("hips")?.position.clone() ?? new THREE.Vector3();
   const upperL = L.lower ? Math.max(0.14, L.lower.position.length()) : 0.26;
@@ -158,47 +175,67 @@ export function createVrmRig(humanoid: Humanoid) {
     const sid = side === "left" ? 3 : 11;
     const open = clamp(spread, 0, 1);
     const dragging = pose.startsWith("PAN");
-    const abductBase = lerp(0.015, pose === "SPREAD" ? 0.26 : dragging ? 0.07 : 0.05, open);
-    const together = [0.08, 0.12, 0.16, 0.2];
+    const pinching = pose === "PINCH" || pose === "RETURN";
+    const spreading = pose === "SPREAD";
+    const pointing = pose === "DETAIL_POINT";
+    const hand = node(`${side}Hand`);
+    let named = 0;
     for (let fi = 0; fi < FINGERS.length; fi++) {
       const f = FINGERS[fi]!;
-      const posed = curlAmount(dragging ? pose : pose === "SPREAD" ? "SPREAD" : open > 0.55 ? pose : "HOLD", f);
-      const drive = dragging && fi === 0 ? Math.max(open, 0.82) : open;
-      const curl = clamp(lerp(together[fi]!, posed, drive) + wander(t, seed, sid + fi, 0.16) * 0.04, 0, 0.94);
-      const abduct = abductBase * (fi - 1.05) + wander(t, seed, sid + 30 + fi, 0.14) * 0.025;
+      const index = fi === 0;
+      const wave = Math.sin(t * 1.7 + fi * 0.85 + sid) * (index ? 0.04 : 0.07);
+      const restCurl = index ? 0.06 : 0.1 + fi * 0.03;
+      const curlAmt = spreading
+        ? lerp(restCurl, 0.04, open)
+        : pinching
+          ? lerp(0.12, 0.38, 1 - open) * (index ? 0.45 : 1)
+          : pointing && index
+            ? 0.02
+            : dragging
+              ? restCurl + 0.06
+              : restCurl;
+      const abduct = (spreading ? lerp(0.02, 0.16, open) : 0.05) * (fi - 1.15);
       for (let i = 0; i < PARTS.length; i++) {
         const b = node(`${side}${f}${PARTS[i]}`);
         const r = b ? rest.get(b) : undefined;
         if (!b || !r) continue;
-        const mcp = i === 0;
-        const dip = i === 2;
-        const flex = curl * (mcp ? 0.32 : dip ? 0.08 : 0.42) + (mcp && dragging && fi === 0 ? -0.06 : 0) + (dip ? -0.16 : 0);
-        const abd = mcp ? abduct : 0;
-        _euler.set(flex, abd * 0.18, mcp ? sign * abd : 0);
+        named++;
+        const k = i === 0 ? 0.4 : i === 1 ? 0.85 : 0.55;
+        const flex = curlAmt * k + wave * (i === 1 ? 1 : 0.4);
+        _euler.set(flex, i === 0 ? abduct * 0.12 : 0, i === 0 ? sign * abduct : 0);
         b.quaternion.copy(r).multiply(_q.setFromEuler(_euler));
       }
     }
-    const thumbOpp = pose === "PINCH" || (pose === "SPREAD" && open < 0.25) ? 0.55 : pose === "SPREAD" ? lerp(0.4, 0.05, open) : dragging ? 0.18 : 0.28;
-    const thumbLive = wander(t, seed, sid + 70, 0.18) * 0.05;
-    {
-      const meta = node(`${side}ThumbMetacarpal`);
-      const rr = meta ? rest.get(meta) : undefined;
-      if (meta && rr) {
-        _euler.set(0.08 + thumbLive, sign * (thumbOpp * 0.7 + thumbLive), sign * (0.22 + (1 - open) * 0.08));
-        meta.quaternion.copy(rr).multiply(_q.setFromEuler(_euler));
-      }
-      const prox = node(`${side}ThumbProximal`);
-      const rp = prox ? rest.get(prox) : undefined;
-      if (prox && rp) {
-        _euler.set(0.16 + thumbOpp * 0.25, 0, sign * 0.04);
-        prox.quaternion.copy(rp).multiply(_q.setFromEuler(_euler));
-      }
-      const dist = node(`${side}ThumbDistal`);
-      const rd = dist ? rest.get(dist) : undefined;
-      if (dist && rd) {
-        _euler.set(0.1 + (pose === "PINCH" ? 0.12 : 0), 0, 0);
-        dist.quaternion.copy(rd).multiply(_q.setFromEuler(_euler));
-      }
+    const thumbOpp = spreading ? lerp(0.22, 0.08, open) : pinching ? lerp(0.12, 0.32, 1 - open) : 0.16;
+    const thumbLive = Math.sin(t * 1.5 + sid) * 0.04;
+    const thumbBones = [`${side}ThumbMetacarpal`, `${side}ThumbProximal`, `${side}ThumbDistal`] as const;
+    const thumbFlex = [0.08 + thumbLive, 0.12 + thumbOpp * 0.25, 0.08];
+    for (let i = 0; i < thumbBones.length; i++) {
+      const b = node(thumbBones[i]!);
+      const r = b ? rest.get(b) : undefined;
+      if (!b || !r) continue;
+      named++;
+      _euler.set(thumbFlex[i]!, sign * (thumbOpp * 0.45), sign * (0.16 + thumbOpp * 0.2));
+      b.quaternion.copy(r).multiply(_q.setFromEuler(_euler));
+    }
+    if (named < 4 && hand) {
+      let n = 0;
+      hand.traverse((o) => {
+        if (o === hand) return;
+        const isBone = (o as THREE.Bone).isBone || o.type === "Bone";
+        if (!isBone) return;
+        let r = rest.get(o);
+        if (!r) {
+          r = o.quaternion.clone();
+          rest.set(o, r);
+        }
+        const d = Math.min(2, n % 3);
+        n++;
+        const wave = Math.sin(t * 1.6 + n * 0.5 + sid) * 0.05;
+        const curl = spreading ? 0.05 + d * 0.03 : pinching ? 0.16 + d * 0.18 : 0.1 + d * 0.06;
+        _euler.set(curl + wave, 0, 0);
+        o.quaternion.copy(r).multiply(_q.setFromEuler(_euler));
+      });
     }
   }
 
@@ -224,55 +261,52 @@ export function createVrmRig(humanoid: Humanoid) {
     const u = upperLen * Math.max(0.8, _scl.x);
     const l = lowerLen * Math.max(0.8, _scl.x);
     const towardTable = HEX.tableZ >= _sh.z ? 1 : -1;
-    const out = _sh.x >= 0 ? 1 : -1;
+    const inward = _sh.x >= 0 ? -1 : 1;
     _dir.copy(_goal).sub(_sh);
     let d = _dir.length();
     const maxR = (u + l) * 0.985;
     if (d < 1e-5) return;
     if (d > maxR) {
-      for (let k = 0; k < 12 && d > maxR; k++) {
-        _goal.z -= 0.035;
-        if (_goal.z < Z_MIN) _goal.z = Z_MIN;
-        snapPalm(_goal);
-        _dir.copy(_goal).sub(_sh);
-        d = _dir.length();
-      }
-      if (d > maxR) {
-        _dir.setLength(maxR);
-        _goal.copy(_sh).add(_dir);
-        snapPalm(_goal);
-        _dir.copy(_goal).sub(_sh);
-        d = _dir.length();
-      }
+      _dir.multiplyScalar(maxR / d);
+      _goal.copy(_sh).add(_dir);
+      snapPalm(_goal);
+      _dir.copy(_goal).sub(_sh);
+      d = _dir.length();
     }
+    if (d < 1e-5) return;
     _dir.multiplyScalar(1 / d);
-    const reach = clamp(d / maxR, 0, 1);
     _pole.set(
-      _hip.x + out * (0.16 + 0.14 * open),
-      _hip.y + 0.1 + 0.08 * (1 - reach),
-      _sh.z + towardTable * (0.1 + 0.05 * open),
+      _hip.x + inward * 0.02,
+      Math.min(_hip.y + 0.14, _sh.y - 0.18),
+      _hip.z + towardTable * 0.04,
     );
     _elbow.copy(_pole).sub(_sh);
     _elbow.addScaledVector(_dir, -_elbow.dot(_dir));
-    if (_elbow.lengthSq() < 1e-8) _elbow.set(out, -1, towardTable * 0.2);
+    if (_elbow.lengthSq() < 1e-8) _elbow.set(inward, -1, towardTable * 0.15);
     _elbow.normalize();
+    if (_elbow.y > 0) _elbow.y = -Math.abs(_elbow.y);
     const cosA = THREE.MathUtils.clamp((u * u + d * d - l * l) / (2 * u * d), -1, 1);
     const sinA = Math.sqrt(Math.max(0, 1 - cosA * cosA));
     _elbow.multiplyScalar(u * sinA).addScaledVector(_dir, u * cosA).add(_sh);
-    _elbow.y = THREE.MathUtils.clamp(_elbow.y, _hip.y + 0.02, _sh.y - 0.14);
+    _elbow.y = THREE.MathUtils.clamp(_elbow.y, _hip.y - 0.04, Math.min(_sh.y, _goal.y) - 0.1);
     const upperAim = aim.get(upper);
     const lowerAim = aim.get(lower);
     if (upperAim) aimBone(upper, upperAim, _elbow);
     if (lowerAim) {
       aimBone(lower, lowerAim, _goal);
-      _euler.set(0, 0, (_sh.x >= 0 ? -1 : 1) * 0.32);
-      lower.quaternion.multiply(_q.setFromEuler(_euler));
       lower.updateMatrixWorld(true);
     }
   }
 
   return {
     apply(state: TeaserState, _snap: boolean) {
+      try {
+        this._apply(state);
+      } catch {
+        /* keep T-pose rather than freeze the studio */
+      }
+    },
+    _apply(state: TeaserState) {
       const hl = state.hands.left;
       const hr = state.hands.right;
       _wantL.set(hl.x, hl.y, hl.z);
@@ -301,13 +335,13 @@ export function createVrmRig(humanoid: Humanoid) {
         _lastT = t;
       } else {
         _lastT = t;
-        const aHand = 1 - Math.exp(-2.7 * dt);
+        const aHand = 1 - Math.exp(-5.2 * dt);
         _smoothL.lerp(_wantL, aHand);
         _smoothR.lerp(_wantR, aHand);
         snapPalm(_smoothL, lift);
         snapPalm(_smoothR, lift);
         filt.spread = damp(filt.spread, rawSpread, 1.15, dt);
-        filt.open = damp(filt.open, rawSpread, 1.25, dt);
+        filt.open = damp(filt.open, rawSpread, 2.6, dt);
         filt.glance = damp(filt.glance, rawGlance, 1.05, dt);
         filt.glanceDir = damp(filt.glanceDir, rawGlanceDir, 1.05, dt);
         filt.panX = damp(filt.panX, rawPanX, 1.2, dt);
@@ -324,36 +358,36 @@ export function createVrmRig(humanoid: Humanoid) {
       const midXWant = (_smoothL.x + _smoothR.x) * 0.5;
       filt.midX = !_armed ? midXWant : damp(filt.midX, midXWant, 1.35, dt);
       const midX = filt.midX;
-      const stanceWant = Math.tanh(Math.sin(t * 0.16 + 0.4) * 1.2) * (0.32 + 0.55 * glance) + midX * 0.28;
-      filt.stance = damp(filt.stance, stanceWant, 1.2, dt);
+      const stanceWant = Math.tanh(Math.sin(t * 0.22 + 0.4) * 1.4) * (0.45 + 0.4 * glance) + midX * 0.42;
+      filt.stance = damp(filt.stance, stanceWant, 1.35, dt);
       const stance = filt.stance;
       const lookUp = glance;
       const highZ = Math.max(_smoothL.z, _smoothR.z);
       const reachHands = THREE.MathUtils.clamp((highZ - HEX.tableZ + 0.04) / (HEX.screen55.height * 0.36), 0, 1);
-      const reachWant = THREE.MathUtils.clamp(-panY, 0, 1) * 0.2 + reachHands * 0.5 + spread * 0.3;
-      filt.reach = damp(filt.reach, reachWant, 1.15, 1 / 30);
+      const reachWant = THREE.MathUtils.clamp(-panY, 0, 1) * 0.25 + reachHands * 0.45 + spread * 0.18;
+      filt.reach = damp(filt.reach, reachWant, 1.35, dt);
       const reach = filt.reach;
-      const leanWant = (-0.14 - 0.22 * spread - 0.16 * reach + stretch * 0.08) * (1 - glance * 0.5);
-      filt.lean = damp(filt.lean, leanWant, 1.1, 1 / 30);
+      const leanWant = (-0.045 - 0.05 * reach + 0.04 * glance + stretch * 0.03) * (1 - glance * 0.25);
+      filt.lean = damp(filt.lean, leanWant, 1.35, dt);
       const lean = filt.lean;
       const hips = node("hips");
       if (hips && rest.get(hips)) {
-        hips.position.x = hipRest.x + midX * 0.1 + stance * 0.03;
-        hips.position.z = hipRest.z - 0.05 - 0.1 * spread - 0.08 * reach;
+        hips.position.x = hipRest.x + midX * 0.18 + stance * 0.07;
+        hips.position.z = hipRest.z + 0.02 - 0.02 * reach;
         hips.position.y = hipRest.y + 0.015 * reach;
-        _euler.set(-0.06 - 0.1 * spread - 0.06 * reach, midX * 0.14 + stance * 0.12, stance * 0.14);
+        _euler.set(-0.035 - 0.03 * reach, midX * 0.28 + stance * 0.22, stance * 0.18);
         hips.quaternion.copy(rest.get(hips)!).multiply(_q.setFromEuler(_euler));
         hips.updateMatrixWorld(true);
       }
       const spine = node("spine");
       if (spine && rest.get(spine)) {
-        _euler.set(lean, midX * 0.12 + panX * 0.05, stance * 0.05);
+        _euler.set(lean, midX * 0.2 + panX * 0.1, stance * 0.1);
         spine.quaternion.copy(rest.get(spine)!).multiply(_q.setFromEuler(_euler));
         spine.updateMatrixWorld(true);
       }
       const chest = node("chest");
       if (chest && rest.get(chest)) {
-        _euler.set(-0.08 - 0.14 * spread - 0.1 * reach + glance * 0.06 - air * fill, midX * 0.08 + panX * 0.05, stance * 0.03);
+        _euler.set(-0.04 - 0.04 * reach + glance * 0.05 - air * fill, midX * 0.14 + panX * 0.1, stance * 0.06);
         chest.quaternion.copy(rest.get(chest)!).multiply(_q.setFromEuler(_euler));
         chest.updateMatrixWorld(true);
       } else {
@@ -361,36 +395,38 @@ export function createVrmRig(humanoid: Humanoid) {
       }
       const upperChest = node("upperChest");
       if (upperChest && rest.get(upperChest)) {
-        _euler.set(-0.05 * reach - 0.03 * spread - air * 0.7 * fill, panX * 0.03 + midX * 0.04, 0);
+        _euler.set(-0.02 * reach - air * 0.5 * fill, panX * 0.06 + midX * 0.06, stance * 0.03);
         upperChest.quaternion.copy(rest.get(upperChest)!).multiply(_q.setFromEuler(_euler));
         upperChest.updateMatrixWorld(true);
       }
       const lLeg = node("leftUpperLeg");
       const rLeg = node("rightUpperLeg");
       if (lLeg && rest.get(lLeg)) {
-        _euler.set(stance > 0.12 ? 0.2 : 0.04 + spread * 0.03, 0, stance * 0.05);
+        _euler.set(stance > 0.08 ? 0.32 : 0.08 + spread * 0.05, 0, stance * 0.08);
         lLeg.quaternion.copy(rest.get(lLeg)!).multiply(_q.setFromEuler(_euler));
       }
       if (rLeg && rest.get(rLeg)) {
-        _euler.set(stance < -0.12 ? 0.2 : 0.04 + spread * 0.03, 0, stance * 0.05);
+        _euler.set(stance < -0.08 ? 0.32 : 0.08 + spread * 0.05, 0, stance * 0.08);
         rLeg.quaternion.copy(rest.get(rLeg)!).multiply(_q.setFromEuler(_euler));
       }
       const shL = node("leftShoulder");
       const shR = node("rightShoulder");
-      const asym = THREE.MathUtils.clamp((_smoothL.z - _smoothR.z) * 3.2, -1, 1);
+      const handSpan = THREE.MathUtils.clamp(Math.abs(_smoothL.x - _smoothR.x) * 2.4, 0, 1);
+      const liftL = THREE.MathUtils.clamp((_smoothL.y - 1.05) * 4, -0.35, 0.55);
+      const liftR = THREE.MathUtils.clamp((_smoothR.y - 1.05) * 4, -0.35, 0.55);
       if (shL && rest.get(shL)) {
-        const protract = 0.07 + 0.14 * reach + 0.05 * Math.max(0, asym);
-        const depress = 0.03 + 0.05 * reach;
-        const shrug = 0.03 + 0.04 * glance + air * 0.45 * fill;
-        _euler.set(-protract - depress, 0.05 * panX + 0.04 * midX, -shrug);
+        const yaw = 0.12 * panX + 0.16 * midX + 0.18 * handSpan;
+        const shrug = 0.04 + 0.12 * Math.max(0, liftL) + 0.05 * glance + air * 0.4 * fill;
+        const roll = -0.06 - 0.1 * Math.max(0, liftL);
+        _euler.set(-0.04 - 0.06 * reach + liftL * 0.08, yaw, -shrug + roll * 0.2);
         shL.quaternion.copy(rest.get(shL)!).multiply(_q.setFromEuler(_euler));
         shL.updateMatrixWorld(true);
       }
       if (shR && rest.get(shR)) {
-        const protract = 0.07 + 0.14 * reach + 0.05 * Math.max(0, -asym);
-        const depress = 0.03 + 0.05 * reach;
-        const shrug = 0.03 + 0.04 * glance + air * 0.45 * fill;
-        _euler.set(-protract - depress, -0.05 * panX - 0.04 * midX, shrug);
+        const yaw = -0.12 * panX - 0.16 * midX - 0.18 * handSpan;
+        const shrug = 0.04 + 0.12 * Math.max(0, liftR) + 0.05 * glance + air * 0.4 * fill;
+        const roll = 0.06 + 0.1 * Math.max(0, liftR);
+        _euler.set(-0.04 - 0.06 * reach + liftR * 0.08, yaw, shrug + roll * 0.2);
         shR.quaternion.copy(rest.get(shR)!).multiply(_q.setFromEuler(_euler));
         shR.updateMatrixWorld(true);
       }
@@ -399,36 +435,26 @@ export function createVrmRig(humanoid: Humanoid) {
       L.upper?.getWorldPosition(_shL);
       R.upper?.getWorldPosition(_shR);
 
-      const swap = _shL.x > _shR.x;
-      const palmForLeftBone = swap ? _smoothR : _smoothL;
-      const palmForRightBone = swap ? _smoothL : _smoothR;
+      solveArm(L, _smoothL, upperL, lowerL, spread);
+      solveArm(R, _smoothR, upperR, lowerR, spread);
 
-      solveArm(L, palmForLeftBone, upperL, lowerL, spread);
-      solveArm(R, palmForRightBone, upperR, lowerR, spread);
+      const fd = glassFingerDir();
+      _fingerDir.set(fd.x, fd.y, fd.z);
+      const aimHand = (hand: THREE.Object3D | null, wrist: THREE.Vector3) => {
+        if (!hand) return;
+        const restAim = aim.get(hand);
+        if (!restAim) return;
+        _tip.copy(wrist).addScaledVector(_fingerDir, 0.1);
+        const seated = projectToGlass(_tip.x, _tip.y, _tip.z, 0.01);
+        _tip.set(seated.x, seated.y, seated.z);
+        aimBone(hand, restAim, _tip);
+      };
+      aimHand(L.hand, _smoothL);
+      aimHand(R.hand, _smoothR);
 
       const seed = state.seed ?? 1;
-      const poseL = swap ? hr.pose : hl.pose;
-      const poseR = swap ? hl.pose : hr.pose;
-      poseHand("left", poseL, state.time, seed, filt.open);
-      poseHand("right", poseR, state.time, seed ^ 0x9e37, filt.open);
-      const wristL = node("leftHand");
-      const wristR = node("rightHand");
-      if (wristL && rest.get(wristL)) {
-        const g = poseL;
-        const ext = 0.14;
-        const tilt = -HEX.tableTilt + ext;
-        const deviate = g.startsWith("PAN") ? panX * 0.08 : midX * 0.02;
-        _euler.set(tilt, 0.02 + deviate, 0.03);
-        wristL.quaternion.multiply(_q.setFromEuler(_euler));
-      }
-      if (wristR && rest.get(wristR)) {
-        const g = poseR;
-        const ext = 0.14;
-        const tilt = -HEX.tableTilt + ext;
-        const deviate = g.startsWith("PAN") ? panX * 0.08 : midX * 0.02;
-        _euler.set(tilt, -0.02 + deviate, -0.03);
-        wristR.quaternion.multiply(_q.setFromEuler(_euler));
-      }
+      poseHand("left", hl.pose, state.time, seed, filt.open);
+      poseHand("right", hr.pose, state.time, seed ^ 0x9e37, filt.open);
 
       const neck = node("neck");
       const head = node("head");
@@ -440,16 +466,16 @@ export function createVrmRig(humanoid: Humanoid) {
         const yaw =
           wall * (glanceDir * 0.82 + Math.sin(t * 0.13) * 0.04) + (1 - wall) * (aimX * 0.34 + att);
         const pitch =
-          (1 - wall) * (-0.16 - aimY * 0.12 + Math.sin(t * 0.18) * 0.02) +
-          wall * (-0.04 + stretch * 0.28) +
-          stretch * -0.04 -
-          air * 0.22 * fill;
+          (1 - wall) * (-0.06 - aimY * 0.1 + Math.sin(t * 0.18) * 0.02) +
+          wall * (0.02 + stretch * 0.2) +
+          stretch * -0.02 -
+          air * 0.15 * fill;
         const roll = Math.sin(t * 0.14) * 0.025 + stance * 0.04 + stretch * glanceDir * 0.06;
         _euler.set(pitch, yaw, roll);
         neck.quaternion.copy(rest.get(neck)!).multiply(_q.setFromEuler(_euler));
       }
       if (head && rest.get(head)) {
-        head.scale.setScalar(0.86);
+        head.scale.setScalar(1);
         _euler.set(Math.sin(state.time * 0.28) * 0.03 + stretch * -0.04, Math.sin(state.time * 0.15) * 0.04 + lookUp * glanceDir * 0.08, 0);
         head.quaternion.copy(rest.get(head)!).multiply(_q.setFromEuler(_euler));
         head.updateMatrixWorld(true);

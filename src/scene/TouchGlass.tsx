@@ -1,4 +1,5 @@
-import { worldToGlassUv } from "@/engine/hands";
+import { FINGER_BACK, worldPosToGlassUv } from "@/engine/hands";
+import { HEX } from "@/engine/config";
 import { clamp, lerp } from "@/engine/math";
 import { runtime } from "./runtime";
 import { useFrame } from "@react-three/fiber";
@@ -75,8 +76,11 @@ export function TouchGlass({ width, height }: { width: number; height: number })
     const g = Math.round(lerp(200, 255 * c.g, 0.55));
     const b = Math.round(lerp(210, 255 * c.b, 0.55));
     const spread = clamp(s.interaction.spread, 0, 1);
-    const L = worldToGlassUv(s.hands.left.x, s.hands.left.z);
-    const R = worldToGlassUv(s.hands.right.x, s.hands.right.z);
+    const L = worldPosToGlassUv(s.hands.left.x, s.hands.left.y, s.hands.left.z);
+    const R = worldPosToGlassUv(s.hands.right.x, s.hands.right.y, s.hands.right.z);
+    const dv = FINGER_BACK / HEX.screen55.height;
+    L.v -= dv;
+    R.v -= dv;
     const prev = last.current;
     ctx.globalCompositeOperation = "lighter";
 
@@ -89,10 +93,10 @@ export function TouchGlass({ width, height }: { width: number; height: number })
       }
     };
 
-    const palmR = lerp(0.055, 0.09, spread);
-    const fingerR = lerp(0.022, 0.036, spread);
-    const palmA = 0.1 * press * lerp(1.15, 0.75, spread);
-    const trailA = 0.045 * press;
+    const palmR = lerp(0.018, 0.03, spread);
+    const fingerR = lerp(0.016, 0.028, spread);
+    const palmA = 0.16 * press * lerp(1.2, 0.8, spread);
+    const trailA = 0.06 * press;
 
     if (prev.armed) {
       drawPath(prev.lu, prev.lv, L.u, L.v, fingerR, trailA);

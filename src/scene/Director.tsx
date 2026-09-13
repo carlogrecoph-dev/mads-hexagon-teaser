@@ -1,6 +1,7 @@
 import { useStudio } from "@/store/studio";
 import { engineBridge } from "@/engine/bridge";
 import { evaluateTeaser } from "@/engine/choreography";
+import { bootWork } from "@/engine/operator";
 import { CAMERA_PRESETS } from "@/engine/config";
 import { resolvedCamera, runtime } from "./runtime";
 import { useThree, useFrame } from "@react-three/fiber";
@@ -94,34 +95,35 @@ export function Director() {
 
   useFrame((_, delta) => {
     if (runtime.exporting) return;
-    const store = useStudio.getState();
-    runtime.cameraLock = store.cameraLock;
-    runtime.toyMode = store.toyMode;
-    const plan = store.plan;
-    const aspect = size.width / Math.max(1, size.height);
-    if (!plan) {
-      if (!store.toyMode) applyPose(persp, CAMERA_PRESETS.top, aspect);
-      return;
-    }
-    const d = Math.min(delta, 0.1);
-    if (store.playing) {
-      runtime.playhead += d;
-      if (runtime.playhead >= plan.duration) runtime.playhead = 0;
-    } else {
-      runtime.playhead = store.time;
-    }
-    const state = evaluateTeaser(plan, runtime.playhead, store.settings);
-    runtime.lastState = state;
     try {
+      const store = useStudio.getState();
+      runtime.cameraLock = store.cameraLock;
+      runtime.toyMode = store.toyMode;
+      const plan = store.plan;
+      const aspect = size.width / Math.max(1, size.height);
+      const d = Math.min(delta, 0.1);
+      runtime.playhead += d;
+      let state: TeaserState;
+      if (!plan) {
+        if (runtime.playhead > 40) runtime.playhead = 0;
+        state = bootWork(store.settings, runtime.playhead);
+      } else {
+        if (runtime.playhead >= plan.duration) runtime.playhead = 0;
+        state = evaluateTeaser(plan, runtime.playhead, store.settings);
+      }
+      runtime.lastState = state;
       runtime.applyCharacter(state);
+      if (!store.toyMode) {
+        if (plan) applyCamera(persp, state, aspect);
+        else applyPose(persp, CAMERA_PRESETS.top, aspect);
+      }
+      const now = performance.now();
+      if (!store.lastState || now - runtime.lastUiSync > 90) {
+        runtime.lastUiSync = now;
+        useStudio.setState({ time: runtime.playhead, lastState: state });
+      }
     } catch {
-      /* keep the loop alive */
-    }
-    if (!store.toyMode) applyCamera(persp, state, aspect);
-    const now = performance.now();
-    if (!store.lastState || now - runtime.lastUiSync > 90) {
-      runtime.lastUiSync = now;
-      useStudio.setState({ time: runtime.playhead, lastState: state });
+      /* never freeze the canvas */
     }
   }, -1);
 

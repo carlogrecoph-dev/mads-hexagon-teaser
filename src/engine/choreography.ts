@@ -280,13 +280,15 @@ function oneHandPan(
   const hand = dir === "left" ? -1 : dir === "right" ? 1 : lead >= 0 ? 1 : -1;
   return {
     ...base,
-    spread: Math.min(0.12, base.spread || 0.08),
+    spread: Math.min(0.14, Math.max(0.1, base.spread || 0.12)),
     panX,
     panY,
     lead: hand,
     point: 0.18,
     glance: 0,
-    stretch: 0.28,
+    stretch: 0.22,
+    targetZoom: base.targetZoom,
+    baseZoom: base.baseZoom ?? base.targetZoom,
     gesture,
   };
 }
@@ -530,21 +532,54 @@ export function generatePlan(input: PlanInput): TeaserPlan {
     };
     const pinchOpen: InteractionState = {
       ...pinchClosed,
-      spread: rngRange(rng, 0.88, 0.97),
+      spread: rngRange(rng, 0.86, 0.96),
       point: 0.28,
       gesture: "SPREAD",
     };
 
     steps.push({ kind: "hold", cam, w: 2.2, from: prev, to: pinchClosed, gesture: "DETAIL_POINT", focusId: f.id });
-    steps.push({ kind: "hold", cam, w: 3.8 * heat, from: pinchClosed, to: pinchOpen, gesture: "SPREAD", focusId: f.id });
-    const look = heldPose(pinchOpen, rng, false);
-    look.spread = pinchOpen.spread;
-    look.targetZoom = rec;
-    look.baseZoom = 1.05;
-    look.targetCx = f.cx;
-    look.targetCy = f.cy;
-    steps.push({ kind: "hold", cam, w: 2.15, from: pinchOpen, to: look, gesture: "HOLD", focusId: f.id });
-    steps.push({ kind: "hold", cam, w: 3.8, from: look, to: pinchClosed, gesture: "PINCH", focusId: f.id });
+    steps.push({ kind: "hold", cam, w: 3.7 * heat, from: pinchClosed, to: pinchOpen, gesture: "SPREAD", focusId: f.id });
+
+    const looking: InteractionState = {
+      ...pinchOpen,
+      spread: pinchOpen.spread,
+      targetZoom: rec,
+      baseZoom: rec,
+      gesture: "HOLD",
+      stretch: 0.08,
+    };
+    steps.push({ kind: "hold", cam, w: 2.15, from: pinchOpen, to: looking, gesture: "HOLD", focusId: f.id });
+
+    const parked: InteractionState = {
+      ...looking,
+      spread: 0.12,
+      targetZoom: rec,
+      baseZoom: rec,
+      gesture: "HOLD",
+    };
+    steps.push({ kind: "hold", cam, w: 0.7, from: looking, to: parked, gesture: "HOLD", focusId: f.id });
+
+    const lead = i % 2 === 0 ? 1 : -1;
+    const up = oneHandPan(parked, "up", lead);
+    const down = oneHandPan(up, "down", lead);
+    const right = oneHandPan(down, "right", lead);
+    const left = oneHandPan(right, "left", lead);
+    steps.push({ kind: "hold", cam, w: 1.45, from: parked, to: up, gesture: up.gesture, focusId: f.id });
+    steps.push({ kind: "hold", cam, w: 1.4, from: up, to: down, gesture: down.gesture, focusId: f.id });
+    steps.push({ kind: "hold", cam, w: 1.35, from: down, to: right, gesture: right.gesture, focusId: f.id });
+    steps.push({ kind: "hold", cam, w: 1.35, from: right, to: left, gesture: left.gesture, focusId: f.id });
+
+    const wideAgain: InteractionState = {
+      ...pinchOpen,
+      panX: 0,
+      panY: 0,
+      lead: 0,
+      stretch: 0,
+      gesture: "PINCH",
+    };
+    steps.push({ kind: "hold", cam, w: 1.2, from: left, to: wideAgain, gesture: "DETAIL_POINT", focusId: f.id });
+    steps.push({ kind: "hold", cam, w: 3.7, from: wideAgain, to: pinchClosed, gesture: "PINCH", focusId: f.id });
+
     prev = {
       ...pinchClosed,
       spread: 0.08,
@@ -552,11 +587,12 @@ export function generatePlan(input: PlanInput): TeaserPlan {
       baseZoom: 1.05,
       targetCx: 0.5,
       targetCy: 0.5,
-      glance: 0,
+      glance: i % 2 === 0 ? 0.7 : 0,
+      glanceDir: i % 2 === 0 ? (i % 4 === 0 ? 1 : -1) : 0,
       stretch: 0,
       gesture: "HOLD",
     };
-    steps.push({ kind: "hold", cam, w: 0.9, from: pinchClosed, to: prev, gesture: "HOLD" });
+    steps.push({ kind: "hold", cam, w: 1.0, from: pinchClosed, to: prev, gesture: "HOLD" });
   });
 
   const iGlance: InteractionState = {

@@ -15,7 +15,7 @@ export const HEX = {
   /** Table tilt from horizontal: near edge (operator) lower, far edge higher */
   tableTilt: 0.16,
   tableZ: 0.1,
-  personZ: -0.58,
+  personZ: -0.46,
   personHeight: 1.86,
   floorSize: 12,
 } as const;
