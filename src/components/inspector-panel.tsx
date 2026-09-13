@@ -6,7 +6,8 @@ import { CAMERAS, PRESET_COPY } from "@/lib/copy";
 import { cn } from "@/lib/utils";
 import { useStudio } from "@/store/studio";
 import type { OutputFormat } from "@/engine/types";
-import { ChevronDown, Dices, RotateCcw, WandSparkles } from "lucide-react";
+import { OPENING_IT, SHOT_IT, SHOOT_MODELS, describeFlight, type DroneFlight } from "@/engine/drone";
+import { ChevronDown, ChevronLeft, ChevronRight, Dices, RotateCcw, WandSparkles } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 const FORMATS: { id: OutputFormat; label: string; hint: string }[] = [
@@ -35,6 +36,7 @@ export function InspectorPanel() {
   const art = useStudio((s) => s.artworks.find((a) => a.id === s.activeId));
   const setSeed = useStudio((s) => s.setSeed);
   const randomizeSeed = useStudio((s) => s.randomizeSeed);
+  const cycleDroneModel = useStudio((s) => s.cycleDroneModel);
   const rebuildPlan = useStudio((s) => s.rebuildPlan);
   const enqueueActive = useStudio((s) => s.enqueueActive);
   const lastState = useStudio((s) => s.lastState);
@@ -88,6 +90,51 @@ export function InspectorPanel() {
 
         <FocusMap />
 
+        <div className="rounded-lg border border-border bg-background p-3">
+          <p className="text-[11px] font-medium tracking-[0.12em] text-muted-foreground uppercase">
+            Algoritmo di ripresa
+          </p>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+            20 modelli diversi. Rigenera ne pesca un altro, non una copia. Frecce per tornare indietro.
+          </p>
+          {(() => {
+            const idx = settings.droneModel ?? 0;
+            const model = SHOOT_MODELS[idx % SHOOT_MODELS.length]!;
+            const desc = plan?.drone ? describeFlight(plan.drone as DroneFlight) : null;
+            return (
+              <div className="mt-3 space-y-2">
+                <p className="text-sm text-foreground">
+                  <span className="font-mono text-[11px] text-muted-foreground">
+                    {String(model.id + 1).padStart(2, "0")}/20
+                  </span>{" "}
+                  <span className="font-semibold">{model.name}</span>
+                </p>
+                <p className="text-[11px] text-muted-foreground">{model.hint}</p>
+                {desc ? (
+                  <p className="text-[11px] leading-snug text-muted-foreground">
+                    {OPENING_IT[desc.opening] ?? desc.opening} · {desc.shots.slice(0, 6).map((s) => SHOT_IT[s] ?? s).join(" · ")}
+                  </p>
+                ) : null}
+              </div>
+            );
+          })()}
+          <div className="mt-3 flex gap-1.5">
+            <Button size="icon" variant="outline" onClick={() => cycleDroneModel(-1)} aria-label="Modello precedente" disabled={!art}>
+              <ChevronLeft className="size-4" />
+            </Button>
+            <Button className="flex-1" variant="outline" onClick={randomizeSeed} disabled={!art}>
+              <Dices className="size-4" />
+              Rigenera modello
+            </Button>
+            <Button size="icon" variant="outline" onClick={() => cycleDroneModel(1)} aria-label="Modello successivo" disabled={!art}>
+              <ChevronRight className="size-4" />
+            </Button>
+          </div>
+          <p className="mt-1.5 text-center font-mono text-[10px] text-muted-foreground">
+            seme {art?.seed ?? "—"}
+          </p>
+        </div>
+
         <Row label="Stile del movimento">
           <div className="grid grid-cols-3 gap-1 rounded-lg bg-background p-1">
             {PRESET_COPY.map((p) => (
@@ -127,11 +174,12 @@ export function InspectorPanel() {
         </Row>
 
         <Row label="Qualità export">
-          <div className="grid grid-cols-2 gap-1 rounded-lg bg-background p-1">
+          <div className="grid grid-cols-3 gap-1 rounded-lg bg-background p-1">
             {(
               [
-                ["fast", "Veloce", "720p · 24 fps"],
-                ["hd", "Full HD", "1080p · 30 fps"],
+                ["2k", "2K master", "1440p · 30 fps"],
+                ["hd", "1080p social", "H.264 · 30 fps"],
+                ["fast", "Bozza", "720p · 24 fps"],
               ] as const
             ).map(([id, title, hint]) => (
               <button
@@ -140,7 +188,7 @@ export function InspectorPanel() {
                 onClick={() => setSettings({ exportQuality: id })}
                 className={cn(
                   "min-h-12 rounded-md px-1 py-1.5",
-                  (settings.exportQuality ?? "fast") === id ? "bg-secondary text-foreground" : "text-muted-foreground",
+                  (settings.exportQuality ?? "2k") === id ? "bg-secondary text-foreground" : "text-muted-foreground",
                 )}
               >
                 <span className="block text-xs font-medium">{title}</span>
@@ -156,9 +204,21 @@ export function InspectorPanel() {
         </Button>
         <p className="text-center text-xs leading-relaxed text-muted-foreground">
           {plan
-            ? `Clip di ${plan.duration.toFixed(0)} s · ${
-                (settings.exportQuality ?? "fast") === "hd" ? "1080×1920 30fps" : "720×1280 24fps"
-              }. In basso: progresso e Scarica.`
+            ? `Clip di ${plan.duration.toFixed(0)} s · MP4 H.264 (AVC) · ${
+                (settings.exportQuality ?? "2k") === "2k"
+                  ? settings.format === "9:16"
+                    ? "1440×2560 30fps"
+                    : settings.format === "16:9"
+                      ? "2560×1440 30fps"
+                      : "1440×1440 30fps"
+                  : (settings.exportQuality ?? "2k") === "hd"
+                    ? settings.format === "9:16"
+                      ? "1080×1920 30fps"
+                      : settings.format === "16:9"
+                        ? "1920×1080 30fps"
+                        : "1080×1080 30fps"
+                    : "720p 24fps"
+              }. WhatsApp / TikTok.`
             : "Seleziona un'opera a sinistra per creare il piano di ripresa."}
         </p>
 

@@ -164,6 +164,67 @@ function RimLights() {
   );
 }
 
+function WallPoster({
+  map,
+  position,
+  yaw,
+}: {
+  map: THREE.Texture;
+  position: [number, number, number];
+  yaw: number;
+}) {
+  const w = 3.2;
+  const h = 1.8;
+  return (
+    <group position={position} rotation={[0, yaw, 0]}>
+      <mesh position={[0, 0, -0.025]}>
+        <planeGeometry args={[w + 0.1, h + 0.1]} />
+        <meshBasicMaterial color="#12141a" />
+      </mesh>
+      <mesh>
+        <planeGeometry args={[w, h]} />
+        <meshBasicMaterial map={map} toneMapped={false} />
+      </mesh>
+    </group>
+  );
+}
+
+function BrandMarks({ logo, verse }: { logo: THREE.Texture; verse: THREE.Texture }) {
+  const r = 6.05;
+  const posters: { yaw: number; y: number }[] = [
+    { yaw: Math.PI * 0.18, y: 2.15 },
+    { yaw: Math.PI * 0.82, y: 2.05 },
+    { yaw: -Math.PI * 0.78, y: 2.2 },
+    { yaw: -Math.PI * 0.22, y: 2.1 },
+  ];
+  return (
+    <group>
+      <mesh rotation={[-Math.PI / 2, 0, 0.08]} position={[0, 0.012, 0.06]} receiveShadow>
+        <circleGeometry args={[2.2, 72]} />
+        <meshPhysicalMaterial
+          map={logo}
+          color="#b8c0cc"
+          metalness={0.96}
+          roughness={0.16}
+          envMapIntensity={6.5}
+          clearcoat={0.55}
+          clearcoatRoughness={0.12}
+          polygonOffset
+          polygonOffsetFactor={-2}
+        />
+      </mesh>
+      {posters.map((p, i) => (
+        <WallPoster
+          key={i}
+          map={verse}
+          position={[Math.sin(p.yaw) * r, p.y, Math.cos(p.yaw) * r]}
+          yaw={p.yaw + Math.PI}
+        />
+      ))}
+    </group>
+  );
+}
+
 function StudioFloor({ map }: { map: THREE.Texture }) {
   const hexR = HEX.radius + 0.48;
   return (
@@ -304,12 +365,15 @@ export function Installation() {
   const floorMap = useTex(publicUrl("brand/studio-floor.jpg"));
   const wallMap = useTex(publicUrl("brand/studio-wall.jpg"), [2.2, 1]);
   const steelMap = useTex(publicUrl("brand/studio-steel.jpg"), [2, 2]);
+  const logoMap = useTex(publicUrl("brand/mads-logo.jpg"));
+  const verseMap = useTex(publicUrl("brand/mads-verse.png"));
   return (
     <>
       <color attach="background" args={["#1c1a18"]} />
       <PhotographicLights />
       <RimLights />
       <StudioFloor map={floorMap} />
+      <BrandMarks logo={logoMap} verse={verseMap} />
       <WorkshopSet wallMap={wallMap} steelMap={steelMap} />
       <Truss steelMap={steelMap} />
     </>

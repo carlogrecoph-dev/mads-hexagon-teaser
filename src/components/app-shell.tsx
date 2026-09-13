@@ -30,6 +30,9 @@ function Header({ onHelp }: { onHelp: () => void }) {
         <h1 className="truncate font-display text-sm font-semibold tracking-tight md:text-base">
           Hexagon Teaser
         </h1>
+        <p className="hidden truncate font-mono text-[10px] text-muted-foreground sm:block">
+          mads@madsgallery.art · www.madsgallery.art
+        </p>
       </div>
       <div className="hidden items-center gap-2 sm:flex">
         <span

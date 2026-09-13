@@ -2,8 +2,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { artworkStatusLabel } from "@/lib/copy";
 import { cn } from "@/lib/utils";
+import { deliverTeaser } from "@/lib/save-file";
 import { useStudio } from "@/store/studio";
-import { Check, Trash2, Upload } from "lucide-react";
+import { Check, Download, RotateCcw, Trash2, Upload } from "lucide-react";
 import { useMemo, useRef } from "react";
 
 function useThumbUrl(blob?: Blob) {
@@ -88,6 +89,46 @@ function ArtworkCard({
   );
 }
 
+function VideoShelf() {
+  const jobs = useStudio((s) => s.jobs.filter((j) => j.status === "completed" && (j.videoBlob || j.videoHref)));
+  const discardVideo = useStudio((s) => s.discardVideo);
+  const retryJob = useStudio((s) => s.retryJob);
+  const markDownloaded = useStudio((s) => s.markDownloaded);
+  if (!jobs.length) return null;
+  return (
+    <div className="border-t border-border px-3 py-3">
+      <p className="mb-2 text-[11px] font-medium tracking-[0.12em] text-muted-foreground uppercase">Video generati</p>
+      <ul className="space-y-2">
+        {jobs.map((j) => (
+          <li key={j.id} className="rounded-md border border-border bg-background px-2 py-2">
+            <p className="truncate text-xs font-medium text-foreground">{j.artworkName}</p>
+            <p className="font-mono text-[10px] text-muted-foreground">{j.videoName ?? "teaser.mp4"}</p>
+            <div className="mt-2 flex gap-1">
+              <Button
+                size="sm"
+                className="h-9 flex-1"
+                onClick={() => {
+                  markDownloaded(j.id);
+                  void deliverTeaser(j.videoBlob, j.videoName ?? "teaser.mp4", j.videoHref);
+                }}
+              >
+                <Download className="size-3.5" />
+                Scarica
+              </Button>
+              <Button size="icon" variant="outline" className="size-9" onClick={() => retryJob(j.id)} aria-label="Rifai">
+                <RotateCcw className="size-3.5" />
+              </Button>
+              <Button size="icon" variant="outline" className="size-9" onClick={() => discardVideo(j.id)} aria-label="Cestina">
+                <Trash2 className="size-3.5" />
+              </Button>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export function LibraryPanel() {
   const artworks = useStudio((s) => s.artworks);
   const activeId = useStudio((s) => s.activeId);
@@ -139,6 +180,7 @@ export function LibraryPanel() {
         </Button>
       </div>
       {busy ? <p className="px-3 pb-2 text-xs text-accent">{busy}</p> : null}
+      <VideoShelf />
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 pb-4">
         {artworks.map((a) => (
           <ArtworkCard

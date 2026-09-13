@@ -170,7 +170,7 @@ export function createVrmRig(humanoid: Humanoid) {
     if (b && r) b.quaternion.copy(r);
   }
 
-  function poseHand(side: "left" | "right", pose: GestureId, t: number, seed: number, spread: number) {
+  function poseHand(side: "left" | "right", pose: GestureId, t: number, seed: number, spread: number, stretch = 0) {
     const sign = side === "left" ? 1 : -1;
     const sid = side === "left" ? 3 : 11;
     const open = clamp(spread, 0, 1);
@@ -178,22 +178,27 @@ export function createVrmRig(humanoid: Humanoid) {
     const pinching = pose === "PINCH" || pose === "RETURN";
     const spreading = pose === "SPREAD";
     const pointing = pose === "DETAIL_POINT";
+    const shaking = pose === "HOLD" && stretch > 0.18;
     const hand = node(`${side}Hand`);
     let named = 0;
     for (let fi = 0; fi < FINGERS.length; fi++) {
       const f = FINGERS[fi]!;
       const index = fi === 0;
-      const wave = Math.sin(t * 1.7 + fi * 0.85 + sid) * (index ? 0.04 : 0.07);
+      const wave = shaking
+        ? Math.sin(t * 6.2 + fi * 1.1 + sid) * 0.11
+        : Math.sin(t * 1.7 + fi * 0.85 + sid) * (index ? 0.04 : 0.07);
       const restCurl = index ? 0.06 : 0.1 + fi * 0.03;
-      const curlAmt = spreading
-        ? lerp(restCurl, 0.04, open)
-        : pinching
-          ? lerp(0.12, 0.38, 1 - open) * (index ? 0.45 : 1)
-          : pointing && index
-            ? 0.02
-            : dragging
-              ? restCurl + 0.06
-              : restCurl;
+      const curlAmt = shaking
+        ? 0.02 + Math.abs(Math.sin(t * 4.4 + fi * 0.9 + sid)) * 0.1
+        : spreading
+          ? lerp(restCurl, 0.04, open)
+          : pinching
+            ? lerp(0.12, 0.38, 1 - open) * (index ? 0.45 : 1)
+            : pointing && index
+              ? 0.02
+              : dragging
+                ? restCurl + 0.06
+                : restCurl;
       const abduct = (spreading ? lerp(0.02, 0.16, open) : 0.05) * (fi - 1.15);
       for (let i = 0; i < PARTS.length; i++) {
         const b = node(`${side}${f}${PARTS[i]}`);
@@ -313,7 +318,10 @@ export function createVrmRig(humanoid: Humanoid) {
       const hr = state.hands.right;
       _wantL.set(hl.x, hl.y, hl.z);
       _wantR.set(hr.x, hr.y, hr.z);
-      const lift = THREE.MathUtils.clamp(state.interaction.glance ?? 0, 0, 1) > 0.45 ? 0.012 : 0;
+      const lift =
+        THREE.MathUtils.clamp(state.interaction.glance ?? 0, 0, 1) > 0.45
+          ? 0.018 + THREE.MathUtils.clamp(state.interaction.stretch ?? 0, 0, 1) * 0.016
+          : 0;
       snapPalm(_wantL, lift);
       snapPalm(_wantR, lift);
       const rawSpread = THREE.MathUtils.clamp(state.interaction.spread, 0, 1);
@@ -455,8 +463,8 @@ export function createVrmRig(humanoid: Humanoid) {
       aimHand(R.hand, _smoothR);
 
       const seed = state.seed ?? 1;
-      poseHand("left", hl.pose, state.time, seed, filt.open);
-      poseHand("right", hr.pose, state.time, seed ^ 0x9e37, filt.open);
+      poseHand("left", hl.pose, state.time, seed, filt.open, stretch);
+      poseHand("right", hr.pose, state.time, seed ^ 0x9e37, filt.open, stretch);
 
       const neck = node("neck");
       const head = node("head");

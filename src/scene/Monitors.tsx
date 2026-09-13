@@ -200,6 +200,102 @@ function Ambilight({ width, height }: { width: number; height: number }) {
   );
 }
 
+function LedWallFace({
+  width,
+  height,
+  texture,
+  z,
+  yaw,
+}: {
+  width: number;
+  height: number;
+  texture: THREE.Texture;
+  z: number;
+  yaw: number;
+}) {
+  const mat = useMemo(() => {
+    const m = new THREE.ShaderMaterial({
+      uniforms: { map: { value: texture } },
+      transparent: true,
+      depthWrite: true,
+      side: THREE.FrontSide,
+      toneMapped: false,
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D map;
+        varying vec2 vUv;
+        void main() {
+          vec4 c = texture2D(map, vUv);
+          float lum = dot(c.rgb, vec3(0.299, 0.587, 0.114));
+          float a = mix(0.12, 0.92, smoothstep(0.02, 0.42, lum));
+          float gx = abs(fract(vUv.x * 168.0) - 0.5);
+          float gy = abs(fract(vUv.y * 94.0) - 0.5);
+          float mesh = 1.0 - smoothstep(0.44, 0.5, max(gx, gy)) * 0.22;
+          gl_FragColor = vec4(c.rgb * 1.12 * mesh, a);
+        }
+      `,
+    });
+    return m;
+  }, [texture]);
+  return (
+    <mesh position={[0, 0, z]} rotation={[0, yaw, 0]} material={mat}>
+      <planeGeometry args={[width, height]} />
+    </mesh>
+  );
+}
+
+function SlimLedFrame({ width, height }: { width: number; height: number }) {
+  const t = 0.016;
+  const d = 0.032;
+  const bw = width + t * 2;
+  const bh = height + t * 2;
+  const bar = useMemo(
+    () => new THREE.MeshStandardMaterial({ color: "#12151c", metalness: 0.78, roughness: 0.32, envMapIntensity: 0.9 }),
+    [],
+  );
+  return (
+    <group>
+      <mesh position={[0, bh / 2, 0]} material={bar}>
+        <boxGeometry args={[bw, t, d]} />
+      </mesh>
+      <mesh position={[0, -bh / 2, 0]} material={bar}>
+        <boxGeometry args={[bw, t, d]} />
+      </mesh>
+      <mesh position={[-bw / 2, 0, 0]} material={bar}>
+        <boxGeometry args={[t, bh, d]} />
+      </mesh>
+      <mesh position={[bw / 2, 0, 0]} material={bar}>
+        <boxGeometry args={[t, bh, d]} />
+      </mesh>
+    </group>
+  );
+}
+
+function LedGlass({ width, height }: { width: number; height: number }) {
+  return (
+    <mesh>
+      <boxGeometry args={[width * 0.998, height * 0.998, 0.014]} />
+      <meshPhysicalMaterial
+        color="#9aa8b4"
+        metalness={0.05}
+        roughness={0.06}
+        transmission={0.78}
+        thickness={0.02}
+        transparent
+        opacity={0.28}
+        envMapIntensity={1.4}
+        ior={1.45}
+      />
+    </mesh>
+  );
+}
+
 function OuterMonitor({
   index,
   texture,
@@ -211,12 +307,14 @@ function OuterMonitor({
   const x = Math.sin(angle) * HEX.radius;
   const z = Math.cos(angle) * HEX.radius;
   const rotY = angle + Math.PI;
-  const { width, height, depth } = HEX.screen75;
+  const { width, height } = HEX.screen75;
   return (
     <group position={[x, HEX.outerCenterY, z]} rotation={[0, rotY, 0]}>
       <group rotation={[HEX.inwardTilt, 0, 0]}>
-        <MonitorBezel width={width} height={height} depth={depth} />
-        <ScreenPanel width={width} height={height} texture={texture} />
+        <LedGlass width={width} height={height} />
+        <LedWallFace width={width} height={height} texture={texture} z={0.008} yaw={0} />
+        <LedWallFace width={width} height={height} texture={texture} z={-0.008} yaw={Math.PI} />
+        <SlimLedFrame width={width} height={height} />
         <Ambilight width={width} height={height} />
       </group>
     </group>

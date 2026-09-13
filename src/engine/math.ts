@@ -217,10 +217,20 @@ export function lerpVec(
 }
 
 export function hashSeed(n: number, salt = 0) {
-  let x = (n + salt * 0x9e3779b9) >>> 0;
+  let x = ((n >>> 0) ^ Math.imul(salt >>> 0, 0x9e3779b9)) >>> 0;
   x = Math.imul(x ^ (x >>> 16), 0x7feb352d);
   x = Math.imul(x ^ (x >>> 15), 0x846ca68b);
   return (x ^ (x >>> 16)) >>> 0;
+}
+
+/** 0..1 channel of a seed. Nearby seeds avalanche — 12 and 13 do not look alike. */
+export function seedUnit(seed: number, channel: number) {
+  return hashSeed(seed >>> 0, channel + 1) / 4294967296;
+}
+
+/** Map a seed channel into [min, max]. */
+export function seedRange(seed: number, channel: number, min: number, max: number) {
+  return min + seedUnit(seed, channel) * (max - min);
 }
 
 /** Irregular 1D wander — hashed keys, not a repeating sine. */

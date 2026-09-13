@@ -17,6 +17,7 @@ function applyPose(cam: THREE.PerspectiveCamera, pose: TeaserState["camera"], as
   cam.fov = pose.fov;
   cam.aspect = aspect;
   cam.updateProjectionMatrix();
+  runtime.barrel = pose.barrel ?? 0;
 }
 
 function applyCamera(cam: THREE.PerspectiveCamera, state: TeaserState, aspect: number) {

@@ -6,7 +6,7 @@ export const CAMERAS: {
   hint: string;
   short: string;
 }[] = [
-  { id: "auto", title: "Auto", hint: "Ciclo delle tre camere", short: "Auto" },
+  { id: "auto", title: "Auto", hint: "Drone in sala, sempre sul touch", short: "Drone" },
   { id: "top", title: "Vista dall'alto", hint: "Ripresa sopra l'esagono", short: "Alto" },
   { id: "right", title: "GoPro destra", hint: "Spalla destra, grandangolo", short: "Destra" },
   { id: "left", title: "GoPro sinistra", hint: "Spalla sinistra, grandangolo", short: "Sinistra" },

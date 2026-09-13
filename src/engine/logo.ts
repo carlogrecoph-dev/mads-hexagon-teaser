@@ -40,6 +40,10 @@ export function madsLogoSvg(size = 1024) {
   <text x="${s / 2}" y="${s * 0.9}" text-anchor="middle" fill="${MAGENTA}"
     font-family="${FONT}" font-size="${s * 0.024}" font-weight="400"
     letter-spacing="${s * 0.008}">MEDIATOR ADVISOR DEALER SEEKER</text>
+  <text x="${s / 2}" y="${s * 0.95}" text-anchor="middle" fill="${GOLD}"
+    font-family="${FONT}" font-size="${s * 0.018}" font-weight="400">mads@madsgallery.art</text>
+  <text x="${s / 2}" y="${s * 0.985}" text-anchor="middle" fill="${MAGENTA}"
+    font-family="${FONT}" font-size="${s * 0.018}" font-weight="400">www.madsgallery.art</text>
 </svg>`;
 }
 
@@ -85,6 +89,13 @@ export function drawMadsLogo(ctx: CanvasRenderingContext2D, w: number, h: number
   ctx.font = `400 ${w * 0.024}px ${FONT}`;
   ctx.letterSpacing = `${w * 0.007}px`;
   ctx.fillText("MEDIATOR ADVISOR DEALER SEEKER", w / 2, h * 0.9);
+
+  ctx.letterSpacing = `${w * 0.004}px`;
+  ctx.font = `400 ${w * 0.018}px ${FONT}`;
+  ctx.fillStyle = GOLD;
+  ctx.fillText("mads@madsgallery.art", w / 2, h * 0.95);
+  ctx.fillStyle = MAGENTA;
+  ctx.fillText("www.madsgallery.art", w / 2, h * 0.985);
 }
 
 export function makeLogoDataUrl(size = 1024) {

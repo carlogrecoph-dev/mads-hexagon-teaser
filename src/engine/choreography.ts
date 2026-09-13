@@ -20,8 +20,11 @@ import {
   zoomFromSpread,
   zoomToFitRegion,
   liveHand,
+  seedUnit,
 } from "./math.ts";
 import { handsFromInteraction } from "./hands.ts";
+import { distractionAt } from "./idle.ts";
+import { applyFormatOptics, droneCameraId, droneLabel, evaluateDrone, generateDroneFlight } from "./drone.ts";
 import type {
   CameraId,
   CameraPose,
@@ -424,13 +427,13 @@ function phraseWeight(prev: InteractionState, next: InteractionState, kind: Gest
 }
 
 function tremorGate(t: number, duration: number, seed: number) {
-  const c1 = 5.2 + (seed % 9) * 0.35;
-  const c2 = Math.min(duration - 3.5, duration * 0.66 + (seed % 6) * 0.22);
+  const c1 = 3.8 + seedUnit(seed, 3) * 7.4;
+  const c2 = duration * (0.5 + seedUnit(seed, 5) * 0.32);
   const pulse = (c: number) => {
     const d = Math.abs(t - c);
     return d < 0.65 ? 0.5 + 0.5 * Math.cos((d / 0.65) * Math.PI) : 0;
   };
-  return Math.max(pulse(c1), pulse(c2));
+  return Math.max(pulse(c1), pulse(Math.min(duration - 2.8, c2)));
 }
 
 function primitiveForPair(from: CameraId, to: CameraId, rng: () => number): TransitionPrimitive {
@@ -598,12 +601,32 @@ export function generatePlan(input: PlanInput): TeaserPlan {
       baseZoom: 1.05,
       targetCx: 0.5,
       targetCy: 0.5,
-      glance: i % 2 === 0 ? 0.7 : 0,
-      glanceDir: i % 2 === 0 ? (i % 4 === 0 ? 1 : -1) : 0,
+      glance: 0,
+      glanceDir: 0,
       stretch: 0,
       gesture: "HOLD",
     };
-    steps.push({ kind: "hold", cam, w: 1.0, from: pinchClosed, to: prev, gesture: "HOLD" });
+    steps.push({ kind: "hold", cam, w: 0.55, from: pinchClosed, to: prev, gesture: "HOLD" });
+
+    // Every other visit: 2s off the glass — shake the fingers, check the wall monitors.
+    if (i < visits.length - 1 && i % 2 === 0) {
+      const dir = i % 4 === 0 ? 1 : -1;
+      const lookA: InteractionState = {
+        ...prev,
+        spread: 0.1,
+        point: 0,
+        lead: 0,
+        glance: 0.94,
+        glanceDir: dir,
+        stretch: 0.62,
+        gesture: "HOLD",
+      };
+      const lookB: InteractionState = { ...lookA, glanceDir: -dir, stretch: 0.4 };
+      steps.push({ kind: "hold", cam, w: 0.35, from: prev, to: lookA, gesture: "HOLD" });
+      steps.push({ kind: "hold", cam, w: 2.0, from: lookA, to: lookB, gesture: "HOLD" });
+      prev = { ...lookB, glance: 0, glanceDir: 0, stretch: 0, gesture: "HOLD" };
+      steps.push({ kind: "hold", cam, w: 0.4, from: lookB, to: prev, gesture: "HOLD" });
+    }
   });
 
   const iGlance: InteractionState = {
@@ -683,6 +706,10 @@ export function generatePlan(input: PlanInput): TeaserPlan {
     focusIds: foci.map((f) => f.id),
     artWidth: artW,
     artHeight: artH,
+    drone: generateDroneFlight(input.seed, duration, {
+      model: settings.droneModel ?? 0,
+      opening: settings.droneOpening ?? "auto",
+    }),
   };
 }
 
@@ -901,6 +928,8 @@ export function evaluateTeaser(plan: TeaserPlan, time: number, settings: EngineS
   const interactionMix = mixInteraction(seg.from, seg.to, local);
   const shake = tremorGate(t, plan.duration, plan.seed);
   const live = liveHand(t, plan.seed);
+  const lapse = seg.kind === "hold" ? distractionAt(t, plan.seed) : { glance: 0, glanceDir: 0, stretch: 0 };
+  const glance = Math.max(interactionMix.glance ?? 0, lapse.glance);
   const interaction = {
     ...interactionMix,
     targetCx: (interactionMix.targetCx ?? 0.5) + live.cx * shake * 0.35,
@@ -908,6 +937,9 @@ export function evaluateTeaser(plan: TeaserPlan, time: number, settings: EngineS
     spread: clamp(interactionMix.spread + live.spread * shake * 0.2, 0, 1),
     panX: clamp(interactionMix.panX + live.cx * 3 * shake, -1, 1),
     panY: clamp(interactionMix.panY + live.cy * 3 * shake, -1, 1),
+    glance,
+    glanceDir: lapse.glance > 0.25 ? lapse.glanceDir : (interactionMix.glanceDir ?? 0),
+    stretch: Math.max(interactionMix.stretch ?? 0, lapse.stretch),
   };
   const viewport = viewportFromInteraction(
     interaction,
@@ -936,7 +968,11 @@ export function evaluateTeaser(plan: TeaserPlan, time: number, settings: EngineS
   let camera: CameraPose;
   let label: string;
 
-  if (seg.kind === "hold") {
+  if (plan.drone && plan.drone.keys.length > 1) {
+    camera = applyFormatOptics(poseWithMicro(evaluateDrone(plan.drone, t), t, plan.seed, settings), settings.format);
+    cameraId = droneCameraId(camera);
+    label = droneLabel(plan.drone, t);
+  } else if (seg.kind === "hold") {
     cameraId = seg.camera;
     camera = actionPush(
       poseWithMicro(CAMERA_PRESETS[cameraId], t, plan.seed, settings),
@@ -978,6 +1014,12 @@ export function planFingerprint(plan: TeaserPlan) {
     order: plan.order,
     format: plan.format,
     preset: plan.preset,
+    drone: plan.drone?.keys.map((k) => ({
+      t: +k.t.toFixed(3),
+      k: k.kind,
+      x: +k.position.x.toFixed(3),
+      y: +k.position.y.toFixed(3),
+    })),
     segments: plan.segments.map((s) =>
       s.kind === "hold"
         ? { k: s.kind, c: s.camera, t0: +s.t0.toFixed(4), t1: +s.t1.toFixed(4), g: s.gesture }

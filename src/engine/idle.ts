@@ -1,4 +1,4 @@
-import { clamp, hashSeed, smootherstep, wander } from "./math.ts";
+import { clamp, hashSeed, seedRange, seedUnit, smootherstep, wander } from "./math.ts";
 
 /**
  * Personality layer.
@@ -24,6 +24,12 @@ export interface IdlePose {
   stretch: number;
   /** 0..1, how far her attention is off the glass right now */
   away: number;
+}
+
+export interface Distraction {
+  glance: number;
+  glanceDir: number;
+  stretch: number;
 }
 
 interface Beat {
@@ -128,5 +134,92 @@ export function idlePose(input: IdleInput): IdlePose {
     shoulder,
     stretch,
     away: clamp(lookK + stretch * 0.6, 0, 1),
+  };
+}
+
+const NONE: Distraction = { glance: 0, glanceDir: 0, stretch: 0 };
+
+/** Who she is, for this teaser. Unpacked from the 32-bit seed. */
+export interface OperatorSeed {
+  /** 0 stays on the work → 1 looks up often */
+  curiosity: number;
+  /** 0 calm hands → 1 shakes fingers out */
+  fidget: number;
+  /** preferred wall, -1 left 75" → +1 right */
+  sideBias: number;
+  /** first lapse, seconds into the teaser */
+  firstLapse: number;
+  /** how long a glance lasts, seconds */
+  glanceHold: number;
+  /** seconds between possible looks */
+  lookPeriod: number;
+  /** seconds between possible finger shakes */
+  fidgetPeriod: number;
+}
+
+export function operatorFromSeed(seed: number): OperatorSeed {
+  const curiosity = seedUnit(seed, 11);
+  const fidget = seedUnit(seed, 23);
+  const restlessness = 0.35 + seedUnit(seed, 41) * 0.65;
+  return {
+    curiosity,
+    fidget,
+    sideBias: seedUnit(seed, 59) * 2 - 1,
+    firstLapse: seedRange(seed, 71, 2.6, 7.2),
+    glanceHold: seedRange(seed, 83, 1.45, 2.35),
+    lookPeriod: seedRange(seed, 97, 18.5, 9.2) * (1.15 - restlessness * 0.25),
+    fidgetPeriod: seedRange(seed, 107, 12.8, 6.4) * (1.1 - fidget * 0.2),
+  };
+}
+
+/**
+ * Seeded, irregular lapses of attention while she works the 55".
+ * Looks at a wall monitor, shakes the fingers out, or both — never on a grid.
+ * The seed decides how restless she is, which wall she prefers, and when.
+ */
+export function distractionAt(time: number, seed: number): Distraction {
+  const op = operatorFromSeed(seed);
+  if (time < op.firstLapse) return NONE;
+  const look = beat(time, seed, 21, op.lookPeriod, op.glanceHold);
+  const fidget = beat(time, seed, 22, op.fidgetPeriod, 1.15 + op.fidget * 0.5);
+  const flick = beat(time, seed, 23, op.lookPeriod * 1.35, op.glanceHold * 0.8);
+
+  const lookChance = 0.22 + op.curiosity * 0.5;
+  const fidgetChance = 0.28 + op.fidget * 0.45;
+  const lookOn = look.k > 0 && look.b < lookChance;
+  const fidgetOn = fidget.k > 0 && fidget.b < fidgetChance;
+  const flickOn = flick.k > 0 && flick.b < lookChance * 0.55;
+
+  let glance = 0;
+  let glanceDir = 0;
+  let stretch = 0;
+
+  const prefer = (raw: number) => {
+    const signed = raw >= 0 ? 1 : -1;
+    return Math.sign(op.sideBias) === signed || Math.abs(op.sideBias) < 0.2 ? signed : -signed;
+  };
+
+  if (lookOn) {
+    glance = look.k * (0.7 + op.curiosity * 0.3);
+    glanceDir = prefer(look.a);
+    stretch = look.k * (0.28 + op.fidget * 0.35);
+  }
+  if (flickOn && flick.k > glance * 0.55) {
+    glance = Math.max(glance, flick.k * (0.8 + op.curiosity * 0.15));
+    glanceDir = prefer(flick.a);
+    stretch = Math.max(stretch, flick.k * (0.4 + op.fidget * 0.25));
+  }
+  if (fidgetOn) {
+    stretch = Math.max(stretch, fidget.k * (0.45 + op.fidget * 0.5));
+    if (!lookOn && op.curiosity > 0.62 && fidget.b < 0.2) {
+      glance = Math.max(glance, fidget.k * 0.38);
+      glanceDir = prefer(fidget.a);
+    }
+  }
+
+  return {
+    glance: clamp(glance, 0, 1),
+    glanceDir: clamp(glanceDir, -1, 1),
+    stretch: clamp(stretch, 0, 1),
   };
 }

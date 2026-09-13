@@ -186,6 +186,20 @@ export interface TeaserPlan {
   focusIds: string[];
   artWidth: number;
   artHeight: number;
+  /** Seeded drone take — continuous, always looking at the 55". */
+  drone?: {
+    keys: {
+      t: number;
+      kind: string;
+      position: Vec3;
+      target: Vec3;
+      fov: number;
+      roll: number;
+    }[];
+    opening?: string;
+    model?: number;
+    modelName?: string;
+  };
 }
 
 export interface EngineSettings {
@@ -200,8 +214,12 @@ export interface EngineSettings {
   fps: number;
   includeCharacter: boolean;
   glasses: boolean;
-  /** fast = 720p 24fps (default). hd = 1080p 30fps */
-  exportQuality: "fast" | "hd";
+  /** 2k = 1440p master. hd = 1080p social. fast = 720p bozza. */
+  exportQuality: "fast" | "hd" | "2k";
+  /** auto = the seed picks the opening. otherwise pin the first shot. */
+  droneOpening: "auto" | "outside" | "inside" | "right" | "left" | "behind" | "face" | "high";
+  /** 0–19 authored shoot models. */
+  droneModel: number;
 }
 
 export interface ArtworkRecord {
@@ -242,6 +260,13 @@ export const OUTPUT_PIXELS: Record<OutputFormat, { w: number; h: number }> = {
   "16:9": { w: 1920, h: 1080 },
 };
 
+/** 2K QHD master — long side 2560. */
+export const MASTER_PIXELS: Record<OutputFormat, { w: number; h: number }> = {
+  "9:16": { w: 1440, h: 2560 },
+  "1:1": { w: 1440, h: 1440 },
+  "16:9": { w: 2560, h: 1440 },
+};
+
 export const DEFAULT_SETTINGS: EngineSettings = {
   preset: "cinematic",
   cameraIntensity: 0.6,
@@ -251,8 +276,10 @@ export const DEFAULT_SETTINGS: EngineSettings = {
   transitionDuration: 0.48,
   stabilization: 0.62,
   format: "9:16",
-  fps: 24,
+  fps: 30,
   includeCharacter: true,
   glasses: true,
-  exportQuality: "fast",
+  exportQuality: "2k",
+  droneOpening: "auto",
+  droneModel: 0,
 };

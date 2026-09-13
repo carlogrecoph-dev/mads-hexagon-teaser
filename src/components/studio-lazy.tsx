@@ -1,5 +1,5 @@
 import { HexMark } from "@/components/hex-mark";
-import { useEffect, useState, type ComponentType } from "react";
+import { Component, useEffect, useState, type ComponentType, type ErrorInfo, type ReactNode } from "react";
 
 async function loadStudio(attempt = 0): Promise<ComponentType> {
   try {
@@ -9,6 +9,33 @@ async function loadStudio(attempt = 0): Promise<ComponentType> {
     if (attempt >= 4) throw err;
     await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
     return loadStudio(attempt + 1);
+  }
+}
+
+class Guard extends Component<{ children: ReactNode }, { err: string | null; n: number }> {
+  state = { err: null as string | null, n: 0 };
+  static getDerivedStateFromError(err: Error) {
+    return { err: err.message || "Studio crash" };
+  }
+  componentDidCatch(err: Error, info: ErrorInfo) {
+    console.warn("[studio]", err, info.componentStack);
+  }
+  render() {
+    if (this.state.err) {
+      return (
+        <div className="flex h-full flex-col items-center justify-center gap-3 bg-background px-6 text-center">
+          <p className="max-w-sm text-sm text-destructive">{this.state.err}</p>
+          <button
+            type="button"
+            className="rounded-md border border-border px-3 py-2 text-sm"
+            onClick={() => this.setState({ err: null, n: this.state.n + 1 })}
+          >
+            Riprova
+          </button>
+        </div>
+      );
+    }
+    return <div className="contents" key={this.state.n}>{this.props.children}</div>;
   }
 }
 
@@ -30,8 +57,21 @@ export function StudioLazy() {
   }, []);
   if (error) {
     return (
-      <div className="flex h-full items-center justify-center bg-background px-6 text-center">
+      <div className="flex h-full flex-col items-center justify-center gap-3 bg-background px-6 text-center">
         <p className="max-w-sm text-sm text-destructive">{error}</p>
+        <button
+          type="button"
+          className="rounded-md border border-border px-3 py-2 text-sm"
+          onClick={() => {
+            setError(null);
+            setCanvas(null);
+            void loadStudio().then((C) => setCanvas(() => C)).catch((err: unknown) => {
+              setError(err instanceof Error ? err.message : "Failed to load studio");
+            });
+          }}
+        >
+          Riprova
+        </button>
       </div>
     );
   }
@@ -46,5 +86,9 @@ export function StudioLazy() {
       </div>
     );
   }
-  return <Canvas />;
+  return (
+    <Guard>
+      <Canvas />
+    </Guard>
+  );
 }

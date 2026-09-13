@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { idlePose } from "./idle.ts";
+import { distractionAt, idlePose, operatorFromSeed } from "./idle.ts";
 
 function sample(over: Partial<Parameters<typeof idlePose>[0]> = {}) {
   return idlePose({ time: 0, seed: 42, busy: 0, glance: 0, amount: 1, ...over });
@@ -75,5 +75,30 @@ describe("she is alive, and it is reproducible", () => {
       assert.equal(Math.abs(p.blink), 0);
       assert.equal(Math.abs(p.weight), 0);
     }
+  });
+
+  it("drops attention at irregular moments — same seed, same lapse", () => {
+    let hits = 0;
+    let samples = 0;
+    for (let t = 0; t < 80; t += 1 / 12) {
+      const a = distractionAt(t, 11);
+      const b = distractionAt(t, 11);
+      assert.deepEqual(a, b);
+      samples++;
+      if (a.glance > 0.4 || a.stretch > 0.4) hits++;
+    }
+    assert.ok(hits > 4, `never distracted (${hits})`);
+    assert.ok(hits / samples < 0.32, `distracted too often ${hits}/${samples}`);
+  });
+
+  it("unpacks the seed into a person — nearby seeds are not nearby people", () => {
+    const a = operatorFromSeed(12);
+    const b = operatorFromSeed(12);
+    const c = operatorFromSeed(13);
+    assert.deepEqual(a, b);
+    assert.notEqual(a.sideBias, c.sideBias);
+    assert.ok(Math.abs(a.lookPeriod - c.lookPeriod) > 0.05 || Math.abs(a.curiosity - c.curiosity) > 0.05);
+    assert.ok(a.firstLapse >= 2.5 && a.firstLapse <= 7.3);
+    assert.ok(a.glanceHold >= 1.4 && a.glanceHold <= 2.4);
   });
 });

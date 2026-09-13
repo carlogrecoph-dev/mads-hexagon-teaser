@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { clampViewport, computeBlit, containSize, createRng, hashSeed } from "./math.ts";
+import { clampViewport, computeBlit, containSize, createRng, hashSeed, seedUnit } from "./math.ts";
 
 describe("computeBlit contain-fit", () => {
   it("pillarboxes square art on 16:9", () => {
@@ -92,5 +92,11 @@ describe("rng", () => {
   it("hashes stably", () => {
     assert.equal(hashSeed(12, 3), hashSeed(12, 3));
     assert.notEqual(hashSeed(12, 3), hashSeed(12, 4));
+  });
+
+  it("nearby seeds avalanche into independent channels", () => {
+    const d = Math.abs(seedUnit(12, 1) - seedUnit(13, 1));
+    assert.ok(d > 0.05, `seed 12 and 13 too similar (${d})`);
+    assert.ok(seedUnit(8, 1) !== seedUnit(8, 2));
   });
 });

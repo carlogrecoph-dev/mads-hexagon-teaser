@@ -24,6 +24,7 @@ export const runtime = {
   lastState: null as TeaserState | null,
   playhead: 0,
   lastUiSync: 0,
+  barrel: 0,
   redrawArtwork: () => {},
   applyCharacter: (_s: TeaserState) => {},
   getCanvas: () => null as HTMLCanvasElement | null,

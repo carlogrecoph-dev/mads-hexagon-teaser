@@ -58,6 +58,8 @@ interface StudioStore {
   toyMode: boolean;
   exportProgress: number;
   exportFrame: string;
+  hudJobId: string | null;
+  downloadedIds: string[];
 
   hydrate: () => Promise<void>;
   addFiles: (files: File[]) => Promise<void>;
@@ -68,6 +70,7 @@ interface StudioStore {
   setFocusPoints: (id: string, points: FocusPoint[]) => Promise<void>;
   setSettings: (patch: Partial<EngineSettings>) => void;
   randomizeSeed: () => void;
+  cycleDroneModel: (dir: 1 | -1) => void;
   setSeed: (seed: number) => void;
   rebuildPlan: () => void;
   play: () => void;
@@ -86,6 +89,10 @@ interface StudioStore {
   retryFailed: () => void;
   downloadJob: (id: string) => void;
   downloadAll: () => void;
+  closeExportHud: () => void;
+  markDownloaded: (id: string) => void;
+  discardVideo: (id: string) => void;
+  retryJob: (id: string) => void;
   tickState: () => TeaserState | null;
 }
 
@@ -166,10 +173,18 @@ export const useStudio = create<StudioStore>((set, get) => ({
   abort: null,
   exportProgress: 0,
   exportFrame: "",
+  hudJobId: null,
+  downloadedIds: [],
 
   hydrate: async () => {
     try {
-      const settings = { ...(await loadSettings()), includeCharacter: true };
+      const loaded = (await loadSettings()) ?? {};
+      const settings = {
+        ...DEFAULT_SETTINGS,
+        ...loaded,
+        includeCharacter: true,
+        droneModel: ((typeof loaded.droneModel === "number" ? loaded.droneModel : 0) >>> 0) % 20,
+      };
       const jobs = await listJobs();
       set({ settings, jobs, ready: true });
       let artworks = await listArtworks();
@@ -274,13 +289,28 @@ export const useStudio = create<StudioStore>((set, get) => ({
   randomizeSeed: () => {
     const art = get().artworks.find((a) => a.id === get().activeId);
     if (!art) return;
+    const n = 20;
+    const cur = get().settings.droneModel ?? 0;
+    const jump = 1 + Math.floor(Math.random() * (n - 1));
+    const droneModel = (cur + jump) % n;
     const seed = (Math.random() * 0xffffffff) >>> 0;
     const next = { ...art, seed };
+    const settings = { ...get().settings, droneOpening: "auto" as const, droneModel };
     void putArtwork(next);
+    void saveSettings(settings);
     set({
       artworks: get().artworks.map((a) => (a.id === art.id ? next : a)),
+      cameraLock: "auto",
+      settings,
     });
     get().rebuildPlan();
+  },
+
+  cycleDroneModel: (dir) => {
+    const n = 20;
+    const cur = get().settings.droneModel ?? 0;
+    const droneModel = (cur + dir + n) % n;
+    get().setSettings({ droneModel, droneOpening: "auto" });
   },
 
   setSeed: (seed) => {
@@ -440,6 +470,54 @@ export const useStudio = create<StudioStore>((set, get) => ({
       .forEach((j) => j.videoBlob && j.videoName && downloadBlob(j.videoBlob, j.videoName));
   },
 
+  closeExportHud: () => set({ hudJobId: null }),
+
+  markDownloaded: (id) => {
+    if (get().downloadedIds.includes(id)) return;
+    set({ downloadedIds: [...get().downloadedIds, id] });
+  },
+
+  discardVideo: (id) => {
+    const job = get().jobs.find((j) => j.id === id);
+    const jobs = get().jobs.filter((j) => j.id !== id);
+    if (job) {
+      void putJob({
+        ...job,
+        status: "cancelled",
+        videoBlob: undefined,
+        videoHref: undefined,
+        videoName: undefined,
+      });
+      const art = get().artworks.find((a) => a.id === job.artworkId);
+      if (art) {
+        const next = { ...art, status: "ready" as const, videoBlob: undefined, videoName: undefined };
+        void putArtwork(next);
+        set({
+          artworks: get().artworks.map((a) => (a.id === art.id ? next : a)),
+        });
+      }
+    }
+    set({
+      jobs,
+      hudJobId: get().hudJobId === id ? null : get().hudJobId,
+      downloadedIds: get().downloadedIds.filter((x) => x !== id),
+    });
+  },
+
+  retryJob: (id) => {
+    const jobs = get().jobs.map((j) =>
+      j.id === id
+        ? { ...j, status: "pending" as const, progress: 0, error: undefined, videoBlob: undefined, videoHref: undefined }
+        : j,
+    );
+    jobs.forEach((j) => {
+      const { videoBlob: _b, ...row } = j;
+      void putJob(row as RenderJob);
+    });
+    set({ jobs, hudJobId: get().hudJobId === id ? null : get().hudJobId });
+    void runQueue();
+  },
+
   tickState: () => {
     const { plan, time, settings } = get();
     if (!plan) return null;
@@ -530,6 +608,7 @@ async function runQueue() {
         useStudio.setState({
           exportProgress: 1,
           exportFrame: "Pronto",
+          hudJobId: pending.id,
           artworks: useStudio.getState().artworks.map((a) =>
             a.id === art.id ? { ...nextArt, videoBlob: blob } : a,
           ),

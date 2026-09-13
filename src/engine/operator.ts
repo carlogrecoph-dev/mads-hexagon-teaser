@@ -1,4 +1,4 @@
-import { CAMERA_PRESETS } from "./config.ts";
+import { generateDroneFlight, evaluateDrone } from "./drone.ts";
 import { handsFromInteraction } from "./hands.ts";
 import { DEFAULT_SETTINGS } from "./types.ts";
 import type { EngineSettings, InteractionState, TeaserState } from "./types.ts";
@@ -54,7 +54,7 @@ export function bootWork(settings: EngineSettings = DEFAULT_SETTINGS, t = 0.5): 
     time: t,
     duration: 40,
     cameraId: "top",
-    camera: CAMERA_PRESETS.top,
+    camera: evaluateDrone(generateDroneFlight(1, 40), t),
     viewport: { cx: interaction.targetCx ?? 0.5, cy: interaction.targetCy ?? 0.5, zoom: 1.05 + spread * 0.7 },
     interaction,
     hands: handsFromInteraction(interaction, settings),
