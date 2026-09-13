@@ -7,20 +7,26 @@
     <meta name="theme-color" content="#070708" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <base href="./" />
     <script>
       (function () {
+        if (navigator.serviceWorker) {
+          navigator.serviceWorker.getRegistrations().then(function (rs) {
+            rs.forEach(function (r) {
+              r.unregister();
+            });
+          });
+        }
+        if (window.caches) {
+          caches.keys().then(function (keys) {
+            keys.forEach(function (k) {
+              caches.delete(k);
+            });
+          });
+        }
         var p = location.pathname;
         if (/\.[a-z0-9]+$/i.test(p)) p = p.replace(/\/[^/]+$/, "/");
         else if (p.slice(-1) !== "/") p += "/";
-        window.__HEX_BASE__ =
-          location.origin +
-          p
-            .split("/")
-            .map(function (s) {
-              return encodeURIComponent(s);
-            })
-            .join("/");
+        window.__HEX_BASE__ = location.origin + p;
       })();
     </script>
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
@@ -31,11 +37,33 @@
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Outfit:wght@200;300;400;500;600;700&display=swap"
     />
-    <script type="module" crossorigin src="./assets/index-CLrP8Kpm.js"></script>
+    <style>
+      html,
+      body {
+        margin: 0;
+        min-height: 100dvh;
+        background: #111114;
+        color: #f3f1ec;
+        font-family: Outfit, system-ui, sans-serif;
+      }
+      #boot {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        font-size: 12px;
+        color: #c8f542;
+      }
+    </style>
+    <script type="module" crossorigin src="./assets/index-CZPumfvc.js"></script>
     <link rel="modulepreload" crossorigin href="./assets/rolldown-runtime-hePW80VL.js">
-    <link rel="stylesheet" crossorigin href="./assets/index-B_gv3PuR.css">
+    <link rel="stylesheet" crossorigin href="./assets/index-Ddn_28Gt.css">
   </head>
-  <body class="bg-background text-foreground">
-    <div id="root"></div>
+  <body>
+    <div id="root">
+      <div id="boot">M.A.D.S. · carico lo studio</div>
+    </div>
   </body>
 </html>

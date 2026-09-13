@@ -278,7 +278,9 @@ function tokenIdentityKey(token: string): string {
             .digest("base64url");
         }
       }
-    } catch {}
+    } catch {
+      /* a probe that fails tells us nothing: fall through to the hash */
+    }
   }
   return createHash("sha256").update(token).digest("base64url");
 }

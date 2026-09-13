@@ -93,7 +93,7 @@ function pushOffGirl(p: Vec3): Vec3 {
 }
 
 function keepDrone(p: Vec3, allowOut = false): Vec3 {
-  let y = clamp(p.y, 0.78, allowOut ? 3.35 : 2.62);
+  const y = clamp(p.y, 0.78, allowOut ? 3.35 : 2.62);
   let x = p.x;
   let z = p.z;
   const xz = Math.hypot(x, z);

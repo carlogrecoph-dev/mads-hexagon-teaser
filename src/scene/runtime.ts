@@ -1,5 +1,6 @@
 import type { TeaserState } from "@/engine/types";
 import { CAMERA_PRESETS } from "@/engine/config";
+import { loadTuning, setTuning, tuning } from "@/engine/tuning";
 import type { CameraMode } from "@/engine/types";
 
 export const runtime = {
@@ -44,10 +45,14 @@ export function resolvedCamera(state: TeaserState) {
 }
 
 if (typeof window !== "undefined") {
+  loadTuning();
   (window as unknown as { __hexagon: unknown }).__hexagon = {
     runtime,
     /** Live camera presets — mutate for QA / close-up inspection. */
     presets: CAMERA_PRESETS,
+    /** The motion dials, so a QA run can drive them without the UI. */
+    tuning,
+    setTuning,
     get time() {
       return runtime.lastState?.time ?? runtime.playhead;
     },

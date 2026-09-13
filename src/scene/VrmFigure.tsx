@@ -5,7 +5,7 @@ import type { TeaserState } from "@/engine/types";
 import { DEFAULT_SETTINGS } from "@/engine/types";
 import { useFrame } from "@react-three/fiber";
 import { useLayoutEffect, useRef } from "react";
-import { dressBelt, dressBodice, dressSkirt, mangaWig } from "./wardrobe";
+import { dressBodice, dressSkirt, mangaWig } from "./wardrobe";
 import * as THREE from "three";
 
 type VrmHumanoid = {
@@ -182,6 +182,8 @@ function wearLook(root: THREE.Object3D, humanoid?: VrmHumanoid) {
   if (oldBodice) chest.remove(oldBodice);
   const oldSkirt = hips.getObjectByName("dressSkirt");
   if (oldSkirt) hips.remove(oldSkirt);
+  // the belt was a patch over a skirt that did not cover the seat; the skirt
+  // now covers it by construction, so it goes
   const oldBelt = hips.getObjectByName("dressBelt");
   if (oldBelt) hips.remove(oldBelt);
 
@@ -242,34 +244,45 @@ function wearLook(root: THREE.Object3D, humanoid?: VrmHumanoid) {
   if (!hips.getObjectByName("dressSkirt")) {
     const knee = kneeW?.y ?? hipsW.y - 0.35;
     const hemY = knee - (knee - (footW?.y ?? knee - 0.2)) * 0.35;
-    const hipRing = (y: number, grow: number): [number, number, number] => {
+    const waistTop = hipY + (chestW.y - hipsW.y) * 0.16;
+
+    /**
+     * The drape rule.
+     *
+     * Four hand-picked rings cannot describe a seat: between the hip ring and
+     * the one below it the surface interpolates in a straight line, and that
+     * line cuts straight through the widest part of the backside — which is
+     * why the rear was coming through the cloth and needed a belt over it.
+     *
+     * Cloth does not work that way. It is pinned at the waist and falls, so at
+     * every height it is at least as wide as the widest thing ABOVE it. Sample
+     * the measured body densely, carry a running maximum downwards, add the
+     * ease and a little flare towards the hem, and the skirt clears the seat
+     * by construction — at any body shape, with nothing pinned over it.
+     */
+    const STEPS = 16;
+    const drape: [number, number, number][] = [];
+    let wideX = 0;
+    let wideZ = 0;
+    for (let i = 0; i <= STEPS; i++) {
+      const f = i / STEPS;
+      const y = waistTop + (hemY - waistTop) * f;
       const g = girthAt(m, y);
+      wideX = Math.max(wideX, g.x);
+      wideZ = Math.max(wideZ, g.z);
+      // straight down off the widest point, opening slightly towards the hem
+      const flare = 1 + 0.3 * f * f;
       const local = hips.worldToLocal(new THREE.Vector3(hipsW.x, y, hipsW.z)).y;
-      return [local, (g.x * EASE * grow) / hipScale, (g.z * EASE * grow) / hipScale];
-    };
+      drape.push([local, (wideX * EASE * flare) / hipScale, (wideZ * EASE * flare) / hipScale]);
+    }
+    // the profile is built top-down; the sleeve wants it hem-first
+    drape.reverse();
+
     hips.add(
       dressSkirt({
         color: "#0c0c10",
         sheen: "#2a2a32",
-        rings: [
-          hipRing(hemY, 1.45),
-          hipRing(hemY + (hipsW.y - hemY) * 0.4, 1.22),
-          hipRing(hemY + (hipsW.y - hemY) * 0.75, 1.1),
-          hipRing(hipY + (chestW.y - hipsW.y) * 0.08, 1.05),
-        ],
-      }),
-    );
-    const seatY = hipsW.y - (hipsW.y - hemY) * 0.22;
-    const waistYBelt = hipsW.y + (chestW.y - hipsW.y) * 0.22;
-    hips.add(
-      dressBelt({
-        color: "#050506",
-        rings: [
-          hipRing(seatY, 1.28),
-          hipRing(hipsW.y - (hipsW.y - seatY) * 0.35, 1.22),
-          hipRing(hipsW.y + 0.01, 1.14),
-          hipRing(waistYBelt, 1.08),
-        ],
+        rings: drape,
       }),
     );
   }

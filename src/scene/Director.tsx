@@ -1,6 +1,7 @@
 import { useStudio } from "@/store/studio";
 import { engineBridge } from "@/engine/bridge";
 import { evaluateTeaser } from "@/engine/choreography";
+import { tuning } from "@/engine/tuning";
 import { bootWork } from "@/engine/operator";
 import { CAMERA_PRESETS } from "@/engine/config";
 import { resolvedCamera, runtime } from "./runtime";
@@ -102,7 +103,8 @@ export function Director() {
       runtime.toyMode = store.toyMode;
       const plan = store.plan;
       const aspect = size.width / Math.max(1, size.height);
-      const d = Math.min(delta, 0.1);
+      /** The tempo dial changes how fast the whole performance runs. */
+      const d = Math.min(delta, 0.1) * tuning.tempo;
       runtime.playhead += d;
       let state: TeaserState;
       if (!plan) {

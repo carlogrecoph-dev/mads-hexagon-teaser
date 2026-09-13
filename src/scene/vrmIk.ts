@@ -3,6 +3,8 @@ import { glassFingerDir, PALM_CLEAR, projectToGlass } from "@/engine/hands";
 import { clamp, damp, lerp, wander } from "@/engine/math";
 import type { GestureId, TeaserState } from "@/engine/types";
 import { runtime } from "./runtime";
+import { tuning } from "@/engine/tuning";
+import { applySwing, createSwing, stepSwing, type SwingOpts } from "./swing";
 import * as THREE from "three";
 
 type Humanoid = {
@@ -27,7 +29,7 @@ const _wantL = new THREE.Vector3();
 const _wantR = new THREE.Vector3();
 
 function snapPalm(v: THREE.Vector3, extra = 0) {
-  const s = projectToGlass(v.x, v.y, v.z, PALM_CLEAR + extra);
+  const s = projectToGlass(v.x, v.y, v.z, PALM_CLEAR * tuning.wristHeight + extra);
   v.set(s.x, s.y, s.z);
 }
 const _from = new THREE.Vector3();
@@ -39,6 +41,34 @@ const _scl = new THREE.Vector3();
 const _headW = new THREE.Vector3();
 let _armed = false;
 let _lastT = 0;
+
+/**
+ * How the two hanging things behave. Hair is long, soft and slow to give up a
+ * swing; a skirt is short, stiff and barely moves.
+ */
+const HAIR_BASE: SwingOpts = { stiffness: 46, damping: 7.5, inertia: 0.22, limit: 0.5 };
+const SKIRT_BASE: SwingOpts = { stiffness: 120, damping: 15, inertia: 0.07, limit: 0.16 };
+const _hairOpts: SwingOpts = { ...HAIR_BASE };
+const _skirtOpts: SwingOpts = { ...SKIRT_BASE };
+/** Re-read the dials each frame so the panel is felt while you drag the slider. */
+function hairOpts() {
+  _hairOpts.stiffness = HAIR_BASE.stiffness * tuning.hairStiffness;
+  _hairOpts.damping = HAIR_BASE.damping * tuning.hairDamping;
+  _hairOpts.inertia = HAIR_BASE.inertia * tuning.hairInertia;
+  _hairOpts.limit = HAIR_BASE.limit;
+  return _hairOpts;
+}
+function skirtOpts() {
+  const s = tuning.skirtSwing;
+  _skirtOpts.stiffness = SKIRT_BASE.stiffness * tuning.hairStiffness;
+  _skirtOpts.damping = SKIRT_BASE.damping * tuning.hairDamping;
+  _skirtOpts.inertia = SKIRT_BASE.inertia * s;
+  _skirtOpts.limit = SKIRT_BASE.limit * Math.max(0.15, s);
+  return _skirtOpts;
+}
+const hairSwing = createSwing();
+const skirtSwing = createSwing();
+const _swingAt = new THREE.Vector3();
 const filt = {
   spread: 0,
   lean: 0,
@@ -206,7 +236,7 @@ export function createVrmRig(humanoid: Humanoid) {
         if (!b || !r) continue;
         named++;
         const k = i === 0 ? 0.4 : i === 1 ? 0.85 : 0.55;
-        const flex = curlAmt * k + wave * (i === 1 ? 1 : 0.4);
+        const flex = (curlAmt * k + wave * (i === 1 ? 1 : 0.4)) * tuning.fingerRange;
         _euler.set(flex, i === 0 ? abduct * 0.12 : 0, i === 0 ? sign * abduct : 0);
         b.quaternion.copy(r).multiply(_q.setFromEuler(_euler));
       }
@@ -238,7 +268,7 @@ export function createVrmRig(humanoid: Humanoid) {
         n++;
         const wave = Math.sin(t * 1.6 + n * 0.5 + sid) * 0.05;
         const curl = spreading ? 0.05 + d * 0.03 : pinching ? 0.16 + d * 0.18 : 0.1 + d * 0.06;
-        _euler.set(curl + wave, 0, 0);
+        _euler.set((curl + wave) * tuning.fingerRange, 0, 0);
         o.quaternion.copy(r).multiply(_q.setFromEuler(_euler));
       });
     }
@@ -332,6 +362,8 @@ export function createVrmRig(humanoid: Humanoid) {
       const t = state.time;
       const rewind = t + 1e-4 < _lastT;
       const dt = !_armed || rewind ? 1 / 45 : clamp(t - _lastT, 1 / 120, 0.08);
+      /** Time jumped: everything with memory has to be re-seated, not caught up. */
+      const snapNow = !_armed || rewind;
       if (!_armed || rewind) {
         _smoothL.copy(_wantL);
         _smoothR.copy(_wantR);
@@ -364,11 +396,12 @@ export function createVrmRig(humanoid: Humanoid) {
       const panX = filt.panX;
       const panY = rawPanY;
       const fill = lungFill(t);
-      const air = 0.026 * (0.72 + 0.38 * stretch + 0.18 * glance);
+      const air = 0.026 * (0.72 + 0.38 * stretch + 0.18 * glance) * tuning.liveliness;
       const midXWant = (_smoothL.x + _smoothR.x) * 0.5;
       filt.midX = !_armed ? midXWant : damp(filt.midX, midXWant, 1.35, dt);
       const midX = filt.midX;
-      const stanceWant = Math.tanh(Math.sin(t * 0.22 + 0.4) * 1.4) * (0.45 + 0.4 * glance) + midX * 0.42;
+      const stanceWant =
+        Math.tanh(Math.sin(t * 0.22 + 0.4) * 1.4) * (0.45 + 0.4 * glance) * tuning.liveliness + midX * 0.42;
       filt.stance = damp(filt.stance, stanceWant, 1.35, dt);
       const stance = filt.stance;
       const lookUp = glance;
@@ -379,25 +412,25 @@ export function createVrmRig(humanoid: Humanoid) {
       const reach = filt.reach;
       const leanWant = (-0.028 - 0.03 * reach + 0.04 * glance) * (1 - glance * 0.25);
       filt.lean = damp(filt.lean, leanWant, 1.35, dt);
-      const lean = filt.lean;
+      const lean = filt.lean * tuning.leanLimit;
       const hips = node("hips");
       if (hips && rest.get(hips)) {
         hips.position.x = hipRest.x + midX * 0.16 + stance * 0.06;
         hips.position.z = hipRest.z + 0.01;
         hips.position.y = hipRest.y;
-        _euler.set(lean * 0.55, midX * 0.22 + stance * 0.16, stance * 0.1);
+        _euler.set(lean * 0.55, midX * 0.22 * tuning.torsoTurn + stance * 0.16, stance * 0.1);
         hips.quaternion.copy(rest.get(hips)!).multiply(_q.setFromEuler(_euler));
         hips.updateMatrixWorld(true);
       }
       const spine = node("spine");
       if (spine && rest.get(spine)) {
-        _euler.set(lean * 0.75, midX * 0.18 + panX * 0.08, stance * 0.08);
+        _euler.set(lean * 0.75, midX * 0.18 * tuning.torsoTurn + panX * 0.08, stance * 0.08);
         spine.quaternion.copy(rest.get(spine)!).multiply(_q.setFromEuler(_euler));
         spine.updateMatrixWorld(true);
       }
       const chest = node("chest");
       if (chest && rest.get(chest)) {
-        _euler.set(lean * 0.4 + glance * 0.04 - air * fill, midX * 0.12 + panX * 0.08, stance * 0.05);
+        _euler.set(lean * 0.4 + glance * 0.04 - air * fill, midX * 0.12 * tuning.torsoTurn + panX * 0.08, stance * 0.05);
         chest.quaternion.copy(rest.get(chest)!).multiply(_q.setFromEuler(_euler));
         chest.updateMatrixWorld(true);
       } else {
@@ -405,7 +438,7 @@ export function createVrmRig(humanoid: Humanoid) {
       }
       const upperChest = node("upperChest");
       if (upperChest && rest.get(upperChest)) {
-        _euler.set(-0.01 * reach - air * 0.45 * fill, panX * 0.05 + midX * 0.05, stance * 0.02);
+        _euler.set(-0.01 * reach - air * 0.45 * fill, panX * 0.05 + midX * 0.05 * tuning.torsoTurn, stance * 0.02);
         upperChest.quaternion.copy(rest.get(upperChest)!).multiply(_q.setFromEuler(_euler));
         upperChest.updateMatrixWorld(true);
       }
@@ -493,6 +526,37 @@ export function createVrmRig(humanoid: Humanoid) {
         runtime.head.x = _headW.x;
         runtime.head.y = _headW.y;
         runtime.head.z = _headW.z;
+      }
+
+      /**
+       * Hair hangs — and, more to the point, it LAGS.
+       *
+       * The fall is parented to the head so it travels with her, but it is not
+       * welded to the skull's angle: it is a pendulum hanging off the nape.
+       * Gravity keeps it down, the head's acceleration whips it, and the swing
+       * damps out a moment after she has stopped moving. Without this the
+       * whole length swings out sideways every time she looks at the glass,
+       * which is what used to pile up into a lump at the back of her head.
+       */
+      const fall = head?.getObjectByName("hairFall") ?? null;
+      if (fall?.parent) {
+        fall.updateWorldMatrix(true, false);
+        fall.getWorldPosition(_swingAt);
+        applySwing(fall, stepSwing(hairSwing, _swingAt, dt, hairOpts(), snapNow));
+        _euler.set(
+          wander(state.time, 71, 71, 0.12) * 0.07 * tuning.liveliness,
+          wander(state.time, 72, 72, 0.1) * 0.1 * tuning.liveliness,
+          wander(state.time, 73, 73, 0.08) * 0.06 * tuning.liveliness,
+        );
+        fall.quaternion.multiply(_q.setFromEuler(_euler));
+      }
+
+      /** The skirt does the same, stiffer and smaller: cloth has less throw. */
+      const skirt = node("hips")?.getObjectByName("dressSkirt") ?? null;
+      if (skirt?.parent) {
+        skirt.updateWorldMatrix(true, false);
+        skirt.getWorldPosition(_swingAt);
+        applySwing(skirt, stepSwing(skirtSwing, _swingAt, dt, skirtOpts(), snapNow));
       }
     },
     reset() {

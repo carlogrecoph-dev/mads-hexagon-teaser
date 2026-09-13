@@ -1,4 +1,5 @@
 import { FocusMap } from "@/components/focus-map";
+import { MotionPanel } from "@/components/motion-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -221,6 +222,8 @@ export function InspectorPanel() {
               }. WhatsApp / TikTok.`
             : "Seleziona un'opera a sinistra per creare il piano di ripresa."}
         </p>
+
+        <MotionPanel />
 
         <button
           type="button"

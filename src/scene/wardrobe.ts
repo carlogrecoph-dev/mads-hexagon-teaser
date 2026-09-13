@@ -148,7 +148,7 @@ function scalp(radius: number) {
       const a = (j / RADIAL) * Math.PI * 2;
       // how much this meridian faces the front (+Z sits at a = 0)
       const front = Math.max(0, Math.cos(a));
-      const limit = THREE.MathUtils.lerp(Math.PI * 0.82, Math.PI * 0.34, Math.pow(front, 0.75));
+      const limit = THREE.MathUtils.lerp(Math.PI * 0.66, Math.PI * 0.34, Math.pow(front, 0.75));
       const theta = u * limit;
       v.set(Math.sin(theta) * Math.sin(a), Math.cos(theta), Math.sin(theta) * Math.cos(a));
       normals.push(v.x, v.y, v.z);
@@ -189,8 +189,8 @@ export function mangaWig(opts: WigOptions) {
 
   // the mass: a cap with a real hairline — high over the face, long at the nape
   const cap = new THREE.Mesh(scalp(r * 0.99), base);
-  cap.scale.set(1.03, 1.06, 1.08);
-  cap.position.set(0, r * 0.04, -r * 0.07);
+  cap.scale.set(1.02, 1.03, 1.03);
+  cap.position.set(0, r * 0.03, -r * 0.04);
   cap.castShadow = false;
   cap.receiveShadow = false;
   cap.frustumCulled = false;
@@ -198,43 +198,6 @@ export function mangaWig(opts: WigOptions) {
 
   const V = (x: number, y: number, z: number) => new THREE.Vector3(x * r, y * r, z * r);
 
-  const cloth = new THREE.MeshPhysicalMaterial({
-    color: "#000000",
-    roughness: 0.9,
-    metalness: 0,
-    side: THREE.DoubleSide,
-    envMapIntensity: 0,
-  });
-  const bandana = new THREE.Group();
-  bandana.name = "headBandana";
-  const cover = new THREE.Mesh(scalp(r * 1.05), cloth);
-  cover.scale.set(1.1, 1.28, 1.12);
-  cover.position.set(0, r * 0.12, -r * 0.05);
-  cover.castShadow = false;
-  cover.receiveShadow = false;
-  cover.frustumCulled = false;
-  bandana.add(cover);
-  bandana.add(
-    sleeve(cloth, {
-      profile: [
-        [r * 0.1, r * 1.06, r * 1.1],
-        [r * 0.32, r * 1.14, r * 1.16],
-        [r * 0.55, r * 1.08, r * 1.12],
-        [r * 0.72, r * 0.9, r * 0.94],
-      ],
-      segments: 32,
-      fullness: 2.4,
-    }),
-  );
-  bandana.add(
-    lock(cloth, V(0, 0.2, -1.02), V(0.06, -0.08, -1.22), V(0.1, -0.42, -1.12), {
-      width: r * 0.24,
-      thickness: r * 0.12,
-      taper: 0.55,
-      segments: 8,
-    }),
-  );
-  crown.add(bandana);
 
   /**
    * Manga hair is a few big shapes, not many small ones: wide blades that
@@ -245,9 +208,24 @@ export function mangaWig(opts: WigOptions) {
    * hair obeys gravity, not the angle of the skull it grows from. Without that
    * it sticks out sideways like a wing every time she looks down.
    */
+  /**
+   * It pivots at the NAPE, where the hair actually leaves the head — not at
+   * the centre of the skull.
+   *
+   * This is what the lump at the back of the head was. Swinging the whole mass
+   * about the skull's centre lifts its roots off the neck every time she looks
+   * down at the glass, and fourteen wide ribbons all lift at once and pile up
+   * into a hump. Hanging it from the nape, where hair actually grows, the
+   * roots stay put and only the length moves.
+   */
+  const pivot = new THREE.Vector3(0, -0.3 * r, -0.5 * r);
   const fall = new THREE.Group();
   fall.name = "hairFall";
+  fall.position.copy(pivot);
   crown.add(fall);
+  const strands = new THREE.Group();
+  strands.position.copy(pivot).negate();
+  fall.add(strands);
 
   /**
    * The fringe stops at the brow: hair frames a face, it does not hide it.
@@ -271,7 +249,7 @@ export function mangaWig(opts: WigOptions) {
 
   // long locks framing the face, down to the collarbone
   for (const side of [-1, 1]) {
-    fall.add(
+    strands.add(
       lock(
         base,
         V(side * 0.95, 0.5, -0.06),
@@ -280,7 +258,7 @@ export function mangaWig(opts: WigOptions) {
         { width: r * 0.5, thickness: r * 0.15, taper: 1.2, twist: side * 0.12 },
       ),
     );
-    fall.add(
+    strands.add(
       lock(
         side > 0 ? gloss : base,
         V(side * 0.7, 0.62, -0.22),
@@ -290,7 +268,7 @@ export function mangaWig(opts: WigOptions) {
       ),
     );
     // thin temple braid that falls in front of the shoulder
-    fall.add(
+    strands.add(
       lock(
         gloss,
         V(side * 0.55, 0.35, 0.28),
@@ -310,7 +288,7 @@ export function mangaWig(opts: WigOptions) {
     for (let i = 0; i < row.count; i++) {
       const u = row.count === 1 ? 0 : (i / (row.count - 1)) * 2 - 1;
       const flare = 1 + Math.abs(u) * 0.3;
-      fall.add(
+      strands.add(
         lock(
           (i + ri) % 4 === 1 ? gloss : base,
           V(u * 0.72, row.y, row.z * 0.6),

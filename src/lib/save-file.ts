@@ -10,7 +10,7 @@ export function isMobileClient() {
 }
 
 function fileNameOf(name: string) {
-  const n = (name || "teaser.mp4").replace(/[^\w.\-]+/g, "_");
+  const n = (name || "teaser.mp4").replace(/[^\w.-]+/g, "_");
   return n.toLowerCase().endsWith(".mp4") || n.toLowerCase().endsWith(".webm") ? n : `${n}.mp4`;
 }
 
