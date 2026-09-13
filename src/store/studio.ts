@@ -13,6 +13,7 @@ import {
   updateFocus,
 } from "@/engine/db";
 import { evaluateTeaser, generatePlan } from "@/engine/choreography";
+import { SHOOT_MODELS } from "@/engine/drone";
 import { exportTeaser } from "@/engine/export-video";
 import { publicUrl } from "@/lib/asset";
 import { shareOrSave } from "@/lib/save-file";
@@ -183,7 +184,7 @@ export const useStudio = create<StudioStore>((set, get) => ({
         ...DEFAULT_SETTINGS,
         ...loaded,
         includeCharacter: true,
-        droneModel: ((typeof loaded.droneModel === "number" ? loaded.droneModel : 0) >>> 0) % 20,
+        droneModel: ((typeof loaded.droneModel === "number" ? loaded.droneModel : 0) >>> 0) % SHOOT_MODELS.length,
       };
       const jobs = await listJobs();
       set({ settings, jobs, ready: true });
@@ -289,7 +290,7 @@ export const useStudio = create<StudioStore>((set, get) => ({
   randomizeSeed: () => {
     const art = get().artworks.find((a) => a.id === get().activeId);
     if (!art) return;
-    const n = 20;
+    const n = SHOOT_MODELS.length;
     const cur = get().settings.droneModel ?? 0;
     const jump = 1 + Math.floor(Math.random() * (n - 1));
     const droneModel = (cur + jump) % n;
@@ -307,7 +308,7 @@ export const useStudio = create<StudioStore>((set, get) => ({
   },
 
   cycleDroneModel: (dir) => {
-    const n = 20;
+    const n = SHOOT_MODELS.length;
     const cur = get().settings.droneModel ?? 0;
     const droneModel = (cur + dir + n) % n;
     get().setSettings({ droneModel, droneOpening: "auto" });

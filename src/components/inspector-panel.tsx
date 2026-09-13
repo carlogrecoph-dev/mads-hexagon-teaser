@@ -96,7 +96,7 @@ export function InspectorPanel() {
             Algoritmo di ripresa
           </p>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            20 modelli. L'80% del volo resta dentro l'esagono; il 20% può uscire. Rigenera ne pesca un altro.
+            {SHOOT_MODELS.length} scene. Ognuna: fuori, due opere, scenografia. Lei, se c'è, di lato e lontana. Rigenera ne pesca un'altra.
           </p>
           {(() => {
             const idx = settings.droneModel ?? 0;
@@ -106,7 +106,7 @@ export function InspectorPanel() {
               <div className="mt-3 space-y-2">
                 <p className="text-sm text-foreground">
                   <span className="font-mono text-[11px] text-muted-foreground">
-                    {String(model.id + 1).padStart(2, "0")}/20
+                    {String(model.id + 1).padStart(2, "0")}/{SHOOT_MODELS.length}
                   </span>{" "}
                   <span className="font-semibold">{model.name}</span>
                 </p>
