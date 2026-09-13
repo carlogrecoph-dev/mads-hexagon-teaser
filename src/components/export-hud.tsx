@@ -116,8 +116,9 @@ export function ExportHud() {
               </div>
             ) : (
               <div className="mt-3 flex flex-col gap-2">
-                <button
-                  type="button"
+                <a
+                  href={href}
+                  download={ready.videoName ?? "teaser.mp4"}
                   className={cn(buttonVariants({ variant: "live", size: "lg" }), "w-full")}
                   onClick={() => {
                     markDownloaded(ready.id);
@@ -126,7 +127,10 @@ export function ExportHud() {
                 >
                   <Download className="size-4" />
                   Scarica MP4
-                </button>
+                </a>
+                <p className="text-center text-[11px] text-muted-foreground">
+                  Se non parte: tasto destro sul video → Salva video come…
+                </p>
                 <button type="button" className="text-xs text-muted-foreground" onClick={tryClose}>
                   Chiudi
                 </button>

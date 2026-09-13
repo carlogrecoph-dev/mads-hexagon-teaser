@@ -42,15 +42,42 @@ describe("drone flight", () => {
       travel += Math.hypot(p.position.x - prev.position.x, p.position.y - prev.position.y, p.position.z - prev.position.z);
       prev = p;
     }
-    assert.ok(travel > 8, `drone barely flew (${travel})`);
+    assert.ok(travel > 5, `drone barely flew (${travel})`);
     const kinds = new Set(flight.keys.map((k) => k.kind));
     assert.ok(kinds.size >= 4, `only ${[...kinds]}`);
+  });
+
+  it("spends most of the take inside the hexagon — exterior is a short beat", () => {
+    for (const seed of [3, 19, 88, 4, 11]) {
+      const flight = generateDroneFlight(seed, 40);
+      let inside = 0;
+      let n = 0;
+      for (let t = 0; t <= 40; t += 0.25) {
+        const p = evaluateDrone(flight, t);
+        n++;
+        if (Math.hypot(p.position.x, p.position.z) <= HEX.radius + 0.28) inside++;
+      }
+      assert.ok(inside / n >= 0.72, `seed ${seed} inside ${inside / n}`);
+    }
   });
 
   it("starts from named corners — seed picks the opening", () => {
     const openings = new Set<string>();
     for (let s = 1; s < 40; s++) openings.add(generateDroneFlight(s, 40).opening);
     assert.ok(openings.size >= 4, `openings ${[...openings]}`);
+  });
+
+  it("never flies through the operator — 15cm keep-out all around", () => {
+    const keep = 0.22 + 0.15 - 0.02;
+    for (const seed of [3, 19, 88, 6, 14, 1]) {
+      const flight = generateDroneFlight(seed, 40);
+      for (let t = 0; t <= 40; t += 0.2) {
+        const p = evaluateDrone(flight, t).position;
+        const cy = Math.min(HEX.personHeight - 0.02, Math.max(0.05, p.y));
+        const d = Math.hypot(p.x, p.z - HEX.personZ, p.y - cy);
+        assert.ok(d >= keep, `clip seed=${seed} t=${t} d=${d.toFixed(3)}`);
+      }
+    }
   });
 
   it("twenty authored models — switching model is a real jump, not a nudge", () => {

@@ -105,16 +105,19 @@ function VideoShelf() {
             <p className="truncate text-xs font-medium text-foreground">{j.artworkName}</p>
             <p className="font-mono text-[10px] text-muted-foreground">{j.videoName ?? "teaser.mp4"}</p>
             <div className="mt-2 flex gap-1">
-              <Button
-                size="sm"
-                className="h-9 flex-1"
-                onClick={() => {
-                  markDownloaded(j.id);
-                  void deliverTeaser(j.videoBlob, j.videoName ?? "teaser.mp4", j.videoHref);
-                }}
-              >
-                <Download className="size-3.5" />
-                Scarica
+              <Button asChild size="sm" className="h-9 flex-1">
+                <a
+                  href={j.videoHref || "#"}
+                  download={j.videoName ?? "teaser.mp4"}
+                  onClick={(e) => {
+                    markDownloaded(j.id);
+                    if (!j.videoHref) e.preventDefault();
+                    void deliverTeaser(j.videoBlob, j.videoName ?? "teaser.mp4", j.videoHref);
+                  }}
+                >
+                  <Download className="size-3.5" />
+                  Scarica
+                </a>
               </Button>
               <Button size="icon" variant="outline" className="size-9" onClick={() => retryJob(j.id)} aria-label="Rifai">
                 <RotateCcw className="size-3.5" />

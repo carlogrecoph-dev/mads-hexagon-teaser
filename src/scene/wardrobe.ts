@@ -198,6 +198,44 @@ export function mangaWig(opts: WigOptions) {
 
   const V = (x: number, y: number, z: number) => new THREE.Vector3(x * r, y * r, z * r);
 
+  const cloth = new THREE.MeshPhysicalMaterial({
+    color: "#000000",
+    roughness: 0.9,
+    metalness: 0,
+    side: THREE.DoubleSide,
+    envMapIntensity: 0,
+  });
+  const bandana = new THREE.Group();
+  bandana.name = "headBandana";
+  const cover = new THREE.Mesh(scalp(r * 1.05), cloth);
+  cover.scale.set(1.1, 1.28, 1.12);
+  cover.position.set(0, r * 0.12, -r * 0.05);
+  cover.castShadow = false;
+  cover.receiveShadow = false;
+  cover.frustumCulled = false;
+  bandana.add(cover);
+  bandana.add(
+    sleeve(cloth, {
+      profile: [
+        [r * 0.1, r * 1.06, r * 1.1],
+        [r * 0.32, r * 1.14, r * 1.16],
+        [r * 0.55, r * 1.08, r * 1.12],
+        [r * 0.72, r * 0.9, r * 0.94],
+      ],
+      segments: 32,
+      fullness: 2.4,
+    }),
+  );
+  bandana.add(
+    lock(cloth, V(0, 0.2, -1.02), V(0.06, -0.08, -1.22), V(0.1, -0.42, -1.12), {
+      width: r * 0.24,
+      thickness: r * 0.12,
+      taper: 0.55,
+      segments: 8,
+    }),
+  );
+  crown.add(bandana);
+
   /**
    * Manga hair is a few big shapes, not many small ones: wide blades that
    * overlap into one mass and only come to a point at the very tip.
@@ -441,5 +479,23 @@ export function dressSkirt(opts: DressPiece) {
   const g = new THREE.Group();
   g.name = "dressSkirt";
   g.add(sleeve(mat, { profile: opts.rings, segments: 44, fullness: 2.5 }));
+  return g;
+}
+
+/** Wide black belt at the waist, drops over the seat so the rear is covered. */
+export function dressBelt(opts: DressPiece) {
+  const mat = new THREE.MeshPhysicalMaterial({
+    color: opts.color ?? "#000000",
+    roughness: 0.92,
+    metalness: 0,
+    sheen: 0,
+    clearcoat: 0,
+    envMapIntensity: 0,
+    emissive: new THREE.Color("#000000"),
+    side: THREE.DoubleSide,
+  });
+  const g = new THREE.Group();
+  g.name = "dressBelt";
+  g.add(sleeve(mat, { profile: opts.rings, segments: 40, fullness: 3 }));
   return g;
 }

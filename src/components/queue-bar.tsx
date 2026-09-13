@@ -68,13 +68,18 @@ export function QueueBar() {
           Riprova
         </Button>
         {ready && (ready.videoBlob || ready.videoHref) ? (
-          <Button
-            size="sm"
-            variant="live"
-            onClick={() => void deliverTeaser(ready.videoBlob, ready.videoName ?? "teaser.mp4", ready.videoHref)}
-          >
-            <Download className="size-3.5" />
-            Scarica MP4
+          <Button asChild size="sm" variant="live">
+            <a
+              href={clipUrl || ready.videoHref || "#"}
+              download={ready.videoName ?? "teaser.mp4"}
+              onClick={(e) => {
+                if (!clipUrl && !ready.videoHref) e.preventDefault();
+                void deliverTeaser(ready.videoBlob, ready.videoName ?? "teaser.mp4", ready.videoHref);
+              }}
+            >
+              <Download className="size-3.5" />
+              Scarica MP4
+            </a>
           </Button>
         ) : (
           <Button size="sm" variant="live" disabled>
@@ -92,13 +97,17 @@ export function QueueBar() {
                 {j.error ? ` — ${j.error}` : ""}
               </span>
               {j.status === "completed" && (j.videoBlob || j.videoHref) ? (
-                <button
-                  type="button"
+                <a
+                  href={j.videoHref || clipUrl || "#"}
+                  download={j.videoName ?? "teaser.mp4"}
                   className="text-accent hover:underline"
-                  onClick={() => void deliverTeaser(j.videoBlob, j.videoName ?? "teaser.mp4", j.videoHref)}
+                  onClick={(e) => {
+                    if (!j.videoHref && !j.videoBlob) e.preventDefault();
+                    void deliverTeaser(j.videoBlob, j.videoName ?? "teaser.mp4", j.videoHref);
+                  }}
                 >
                   scarica
-                </button>
+                </a>
               ) : null}
             </li>
           ))}

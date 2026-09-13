@@ -95,7 +95,7 @@ export function InspectorPanel() {
             Algoritmo di ripresa
           </p>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            20 modelli diversi. Rigenera ne pesca un altro, non una copia. Frecce per tornare indietro.
+            20 modelli. L'80% del volo resta dentro l'esagono; il 20% può uscire. Rigenera ne pesca un altro.
           </p>
           {(() => {
             const idx = settings.droneModel ?? 0;

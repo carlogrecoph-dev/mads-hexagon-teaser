@@ -5,7 +5,7 @@ import type { TeaserState } from "@/engine/types";
 import { DEFAULT_SETTINGS } from "@/engine/types";
 import { useFrame } from "@react-three/fiber";
 import { useLayoutEffect, useRef } from "react";
-import { dressBodice, dressSkirt, mangaWig } from "./wardrobe";
+import { dressBelt, dressBodice, dressSkirt, mangaWig } from "./wardrobe";
 import * as THREE from "three";
 
 type VrmHumanoid = {
@@ -163,7 +163,9 @@ function wearLook(root: THREE.Object3D, humanoid?: VrmHumanoid) {
   root.updateMatrixWorld(true);
   const m = measureFigure(root);
 
-  if (head && !head.getObjectByName("mangaWig")) {
+  if (head) {
+    const prev = head.getObjectByName("mangaWig");
+    if (prev) head.remove(prev);
     head.updateWorldMatrix(true, false);
     const scale = Math.max(1e-4, head.getWorldScale(new THREE.Vector3()).x);
     const radius = (m.skull?.radius ?? 0.11) / scale;
@@ -176,7 +178,12 @@ function wearLook(root: THREE.Object3D, humanoid?: VrmHumanoid) {
   }
 
   if (!chest || !hips) return;
-  if (chest.getObjectByName("dressBodice")) return;
+  const oldBodice = chest.getObjectByName("dressBodice");
+  if (oldBodice) chest.remove(oldBodice);
+  const oldSkirt = hips.getObjectByName("dressSkirt");
+  if (oldSkirt) hips.remove(oldSkirt);
+  const oldBelt = hips.getObjectByName("dressBelt");
+  if (oldBelt) hips.remove(oldBelt);
 
   const world = (o: THREE.Object3D | null) => {
     if (!o) return null;
@@ -249,6 +256,19 @@ function wearLook(root: THREE.Object3D, humanoid?: VrmHumanoid) {
           hipRing(hemY + (hipsW.y - hemY) * 0.4, 1.22),
           hipRing(hemY + (hipsW.y - hemY) * 0.75, 1.1),
           hipRing(hipY + (chestW.y - hipsW.y) * 0.08, 1.05),
+        ],
+      }),
+    );
+    const seatY = hipsW.y - (hipsW.y - hemY) * 0.22;
+    const waistYBelt = hipsW.y + (chestW.y - hipsW.y) * 0.22;
+    hips.add(
+      dressBelt({
+        color: "#050506",
+        rings: [
+          hipRing(seatY, 1.28),
+          hipRing(hipsW.y - (hipsW.y - seatY) * 0.35, 1.22),
+          hipRing(hipsW.y + 0.01, 1.14),
+          hipRing(waistYBelt, 1.08),
         ],
       }),
     );

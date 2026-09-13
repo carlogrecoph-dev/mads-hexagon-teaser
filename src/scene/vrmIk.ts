@@ -377,27 +377,27 @@ export function createVrmRig(humanoid: Humanoid) {
       const reachWant = THREE.MathUtils.clamp(-panY, 0, 1) * 0.25 + reachHands * 0.45 + spread * 0.18;
       filt.reach = damp(filt.reach, reachWant, 1.35, dt);
       const reach = filt.reach;
-      const leanWant = (-0.045 - 0.05 * reach + 0.04 * glance + stretch * 0.03) * (1 - glance * 0.25);
+      const leanWant = (-0.028 - 0.03 * reach + 0.04 * glance) * (1 - glance * 0.25);
       filt.lean = damp(filt.lean, leanWant, 1.35, dt);
       const lean = filt.lean;
       const hips = node("hips");
       if (hips && rest.get(hips)) {
-        hips.position.x = hipRest.x + midX * 0.18 + stance * 0.07;
-        hips.position.z = hipRest.z + 0.02 - 0.02 * reach;
-        hips.position.y = hipRest.y + 0.015 * reach;
-        _euler.set(-0.035 - 0.03 * reach, midX * 0.28 + stance * 0.22, stance * 0.18);
+        hips.position.x = hipRest.x + midX * 0.16 + stance * 0.06;
+        hips.position.z = hipRest.z + 0.01;
+        hips.position.y = hipRest.y;
+        _euler.set(lean * 0.55, midX * 0.22 + stance * 0.16, stance * 0.1);
         hips.quaternion.copy(rest.get(hips)!).multiply(_q.setFromEuler(_euler));
         hips.updateMatrixWorld(true);
       }
       const spine = node("spine");
       if (spine && rest.get(spine)) {
-        _euler.set(lean, midX * 0.2 + panX * 0.1, stance * 0.1);
+        _euler.set(lean * 0.75, midX * 0.18 + panX * 0.08, stance * 0.08);
         spine.quaternion.copy(rest.get(spine)!).multiply(_q.setFromEuler(_euler));
         spine.updateMatrixWorld(true);
       }
       const chest = node("chest");
       if (chest && rest.get(chest)) {
-        _euler.set(-0.04 - 0.04 * reach + glance * 0.05 - air * fill, midX * 0.14 + panX * 0.1, stance * 0.06);
+        _euler.set(lean * 0.4 + glance * 0.04 - air * fill, midX * 0.12 + panX * 0.08, stance * 0.05);
         chest.quaternion.copy(rest.get(chest)!).multiply(_q.setFromEuler(_euler));
         chest.updateMatrixWorld(true);
       } else {
@@ -405,18 +405,18 @@ export function createVrmRig(humanoid: Humanoid) {
       }
       const upperChest = node("upperChest");
       if (upperChest && rest.get(upperChest)) {
-        _euler.set(-0.02 * reach - air * 0.5 * fill, panX * 0.06 + midX * 0.06, stance * 0.03);
+        _euler.set(-0.01 * reach - air * 0.45 * fill, panX * 0.05 + midX * 0.05, stance * 0.02);
         upperChest.quaternion.copy(rest.get(upperChest)!).multiply(_q.setFromEuler(_euler));
         upperChest.updateMatrixWorld(true);
       }
       const lLeg = node("leftUpperLeg");
       const rLeg = node("rightUpperLeg");
       if (lLeg && rest.get(lLeg)) {
-        _euler.set(stance > 0.08 ? 0.32 : 0.08 + spread * 0.05, 0, stance * 0.08);
+        _euler.set(0.05 + (stance > 0.1 ? 0.1 : 0) + spread * 0.03, 0, stance * 0.05);
         lLeg.quaternion.copy(rest.get(lLeg)!).multiply(_q.setFromEuler(_euler));
       }
       if (rLeg && rest.get(rLeg)) {
-        _euler.set(stance < -0.08 ? 0.32 : 0.08 + spread * 0.05, 0, stance * 0.08);
+        _euler.set(0.05 + (stance < -0.1 ? 0.1 : 0) + spread * 0.03, 0, stance * 0.05);
         rLeg.quaternion.copy(rest.get(rLeg)!).multiply(_q.setFromEuler(_euler));
       }
       const shL = node("leftShoulder");
