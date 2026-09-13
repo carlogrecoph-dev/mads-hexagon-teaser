@@ -90,16 +90,17 @@ function ArtworkCard({
 }
 
 function VideoShelf() {
-  const jobs = useStudio((s) => s.jobs.filter((j) => j.status === "completed" && (j.videoBlob || j.videoHref)));
+  const jobs = useStudio((s) => s.jobs);
   const discardVideo = useStudio((s) => s.discardVideo);
   const retryJob = useStudio((s) => s.retryJob);
   const markDownloaded = useStudio((s) => s.markDownloaded);
-  if (!jobs.length) return null;
+  const ready = jobs.filter((j) => j.status === "completed" && (j.videoBlob || j.videoHref));
+  if (!ready.length) return null;
   return (
     <div className="border-t border-border px-3 py-3">
       <p className="mb-2 text-[11px] font-medium tracking-[0.12em] text-muted-foreground uppercase">Video generati</p>
       <ul className="space-y-2">
-        {jobs.map((j) => (
+        {ready.map((j) => (
           <li key={j.id} className="rounded-md border border-border bg-background px-2 py-2">
             <p className="truncate text-xs font-medium text-foreground">{j.artworkName}</p>
             <p className="font-mono text-[10px] text-muted-foreground">{j.videoName ?? "teaser.mp4"}</p>
